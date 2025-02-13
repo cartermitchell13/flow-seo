@@ -7,29 +7,71 @@ import {
   MenuItem,
   ButtonGroup,
   Link,
-  Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material';
+import { Key as KeyIcon } from '@mui/icons-material';
 import { LoadingStates } from './LoadingStates.tsx';
 import { AssetBrowser } from './AssetBrowser';
+import { AiProviderConfig } from './AiProviderConfig';
 import { Site } from '../types/types.ts';
 
+/**
+ * Dashboard Component Props
+ * 
+ * Properties passed to the Dashboard component
+ */
 interface DashboardProps {
+  /**
+   * Current user information
+   */
   user: { firstName: string };
+  /**
+   * List of Webflow sites the user has access to
+   */
   sites: Site[];
+  /**
+   * Indicates if data is currently being loaded
+   */
   isLoading: boolean;
+  /**
+   * Indicates if there was an error loading data
+   */
   isError: boolean;
+  /**
+   * Error message if there was an error loading data
+   */
   error: string;
+  /**
+   * Callback to trigger site data fetching
+   */
   onFetchSites: () => void;
 }
 
 /**
  * Dashboard Component
  * 
- * The main interface of the AI-powered alt text generator app. This component implements
- * a design similar to the Webflow asset browser with:
- * 1. Top Bar: Simple controls for asset selection and filtering
- * 2. Main Content: Image list with alt text editing
- * 3. Bottom Bar: Action buttons for AI generation and saving
+ * Main interface for the AI-powered alt text generator app. This component follows
+ * Webflow's design system and implements a three-section layout:
+ * 
+ * 1. Top Bar:
+ *    - Asset selection controls (Select 10 w/o alt, Deselect All)
+ *    - Asset Library dropdown for filtering
+ *    - Help documentation link
+ *    - API Key configuration button
+ * 
+ * 2. Main Content:
+ *    - Asset browser with image thumbnails
+ *    - Alt text editing interface
+ *    - Selection indicators
+ * 
+ * 3. Bottom Bar:
+ *    - Selection counter
+ *    - Action buttons (Mark Decorative, AI Generation, Save Changes)
+ * 
+ * The component also includes a dialog for API key configuration that allows users
+ * to set up their preferred AI provider (OpenAI, Anthropic, etc.).
  */
 export function Dashboard({
   user,
@@ -39,8 +81,11 @@ export function Dashboard({
   error,
   onFetchSites,
 }: DashboardProps) {
+  // Track selected assets for batch operations
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
-  const [credits, setCredits] = useState(0);
+  
+  // Control visibility of the API key configuration dialog
+  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
 
   return (
     <Box sx={{ 
@@ -48,18 +93,21 @@ export function Dashboard({
       flexDirection: 'column', 
       height: '100vh',
       bgcolor: 'background.default',
-      color: 'text.primary'
+      color: 'text.primary',
+      m: 0, 
+      p: 0
     }}>
-      {/* Top Bar */}
+      {/* Top Bar - Contains main controls and actions */}
       <Box sx={{ 
-        p: 1, 
         display: 'flex', 
         alignItems: 'center', 
         gap: 1,
         borderBottom: 1,
         borderColor: 'divider',
-        bgcolor: '#1A1A1A'
+        bgcolor: '#1A1A1A',
+        p: 1
       }}>
+        {/* Asset Selection Controls */}
         <ButtonGroup 
           size="small" 
           variant="outlined"
@@ -78,20 +126,27 @@ export function Dashboard({
           <Button>Deselect All</Button>
         </ButtonGroup>
 
+        {/* Asset Library Filter Dropdown */}
         <Select
-          size="small"
+          size="medium"
           value="all"
           sx={{ 
-            minWidth: 120,
+            minWidth: 160,
             bgcolor: '#1A1A1A',
+            fontSize: '1rem',
+            height: 40,
             '& .MuiOutlinedInput-notchedOutline': {
               borderColor: 'divider'
+            },
+            '&:hover .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'primary.main'
             }
           }}
         >
           <MenuItem value="all">Asset Library</MenuItem>
         </Select>
 
+        {/* Help Documentation Link */}
         <Link
           href="#"
           sx={{ 
@@ -107,13 +162,13 @@ export function Dashboard({
           How to use
         </Link>
 
-        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            {credits} credits left
-          </Typography>
+        {/* API Key Configuration Button */}
+        <Box sx={{ ml: 'auto' }}>
           <Button 
             size="small" 
             variant="outlined"
+            startIcon={<KeyIcon />}
+            onClick={() => setShowApiKeyDialog(true)}
             sx={{
               borderColor: 'divider',
               color: 'text.primary',
@@ -123,30 +178,22 @@ export function Dashboard({
               }
             }}
           >
-            Credits
-          </Button>
-          <Button 
-            size="small" 
-            variant="contained" 
-            color="primary"
-          >
-            Buy credits
+            Add API Key
           </Button>
         </Box>
       </Box>
 
-      {/* Main Content */}
+      {/* Main Content - Asset Browser */}
       <Box sx={{ flex: 1, overflow: 'hidden' }}>
         <AssetBrowser
-          assets={[]} // To be populated with actual assets
+          assets={[]} // Will be populated with actual assets from Webflow
           onSelectionChange={setSelectedAssets}
           isLoading={isLoading}
         />
       </Box>
 
-      {/* Bottom Bar */}
+      {/* Bottom Bar - Action Buttons and Status */}
       <Box sx={{ 
-        p: 1,
         display: 'flex',
         alignItems: 'center',
         gap: 2,
@@ -154,11 +201,13 @@ export function Dashboard({
         borderColor: 'divider',
         bgcolor: 'background.paper'
       }}>
-        <Typography variant="body2">
-          {selectedAssets.length} of 69 Selected
+        {/* Selection Counter */}
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          {selectedAssets.length} of {sites.length || 0} Selected
         </Typography>
 
-        <Stack direction="row" spacing={1}>
+        {/* Action Buttons */}
+        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
           <Button
             variant="outlined"
             size="small"
@@ -175,17 +224,35 @@ export function Dashboard({
           >
             AI for Selected
           </Button>
-        </Stack>
-
-        <Button
-          sx={{ ml: 'auto' }}
-          variant="outlined"
-          size="small"
-          disabled={selectedAssets.length === 0}
-        >
-          Save selected with changes
-        </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={selectedAssets.length === 0}
+          >
+            Save selected with changes
+          </Button>
+        </Box>
       </Box>
+
+      {/* API Key Configuration Dialog */}
+      <Dialog 
+        open={showApiKeyDialog} 
+        onClose={() => setShowApiKeyDialog(false)}
+        PaperProps={{
+          sx: { bgcolor: '#1A1A1A' }
+        }}
+      >
+        <DialogTitle>Configure AI Provider</DialogTitle>
+        <DialogContent>
+          <AiProviderConfig
+            onSaveConfig={(provider, apiKey) => {
+              // Store the API key securely and close the dialog
+              // Implementation will be handled by the parent component
+              setShowApiKeyDialog(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Loading and Error States */}
       <LoadingStates isLoading={isLoading} isError={isError} error={error} />

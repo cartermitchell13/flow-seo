@@ -10,30 +10,81 @@ import {
   Stack,
 } from '@mui/material';
 
+/**
+ * Asset Interface
+ * 
+ * Represents a Webflow asset (image) with its metadata
+ */
 interface Asset {
+  /**
+   * Unique identifier for the asset
+   */
   id: string;
+  /**
+   * Original filename of the asset
+   */
   name: string;
+  /**
+   * URL where the asset can be accessed
+   */
   url: string;
+  /**
+   * Current alt text of the asset, if any
+   */
   alt?: string;
+  /**
+   * Type of the asset (Library or Image)
+   */
   type?: 'Library' | 'Image';
 }
 
+/**
+ * AssetBrowser Component Props
+ */
 interface AssetBrowserProps {
+  /**
+   * Array of assets to display in the browser
+   */
   assets: Asset[];
+  /**
+   * Callback fired when asset selection changes
+   * @param selectedAssets Array of selected asset IDs
+   */
   onSelectionChange: (selectedAssets: string[]) => void;
+  /**
+   * Whether the component is in a loading state
+   */
   isLoading?: boolean;
 }
 
 /**
  * AssetBrowser Component
  * 
- * Displays a list of assets with their thumbnails and alt text.
- * Allows for selection and inline alt text editing.
+ * Displays a list of Webflow assets (images) with their thumbnails and alt text.
+ * Features:
+ * - Image thumbnail display
+ * - Checkbox selection for batch operations
+ * - Inline alt text editing
+ * - Asset type indicators (Library/Image)
+ * - Loading and empty states
+ * 
+ * The component follows Webflow's dark theme design with:
+ * - Dark background (#1A1A1A)
+ * - Subtle hover effects
+ * - Clear visual hierarchy
+ * - Consistent spacing and typography
  */
 export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: AssetBrowserProps) {
+  // Track selected assets for batch operations
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+  
+  // Track edited alt text values
   const [editedAltTexts, setEditedAltTexts] = useState<Record<string, string>>({});
 
+  /**
+   * Handles toggling selection of an asset
+   * Updates both local state and parent component
+   */
   const handleToggle = (assetId: string) => {
     const newSelected = selectedAssets.includes(assetId)
       ? selectedAssets.filter(id => id !== assetId)
@@ -42,6 +93,10 @@ export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: A
     onSelectionChange(newSelected);
   };
 
+  /**
+   * Handles changes to alt text input fields
+   * Stores the edited value in local state
+   */
   const handleAltTextChange = (assetId: string, value: string) => {
     setEditedAltTexts(prev => ({
       ...prev,
@@ -60,6 +115,7 @@ export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: A
         py: 1
       }
     }}>
+      {/* Asset List Items */}
       {(assets.length > 0 ? assets : []).map((asset) => (
         <ListItem
           key={asset.id}
@@ -76,7 +132,7 @@ export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: A
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-            {/* Thumbnail and Checkbox */}
+            {/* Thumbnail with Selection Checkbox */}
             <Box sx={{ position: 'relative' }}>
               <img
                 src={asset.url}
@@ -104,8 +160,9 @@ export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: A
               />
             </Box>
 
-            {/* Content */}
+            {/* Asset Details and Alt Text Editor */}
             <Box sx={{ flex: 1 }}>
+              {/* Filename and Type Indicator */}
               <Stack
                 direction="row"
                 justifyContent="space-between"
@@ -132,6 +189,7 @@ export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: A
                 />
               </Stack>
 
+              {/* Alt Text Editor */}
               <TextField
                 fullWidth
                 multiline
@@ -160,6 +218,7 @@ export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: A
         </ListItem>
       ))}
 
+      {/* Loading State */}
       {isLoading && (
         <ListItem>
           <Typography color="text.secondary" align="center" sx={{ width: '100%' }}>
@@ -168,6 +227,7 @@ export function AssetBrowser({ assets, onSelectionChange, isLoading = false }: A
         </ListItem>
       )}
 
+      {/* Empty State */}
       {!isLoading && assets.length === 0 && (
         <ListItem>
           <Typography color="text.secondary" align="center" sx={{ width: '100%', py: 4 }}>
