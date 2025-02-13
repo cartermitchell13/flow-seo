@@ -156,6 +156,38 @@ export interface ScriptStatus {
   [scriptId: string]: { location: ScriptLocation };
 }
 
+/**
+ * Asset Interface
+ * 
+ * Represents a Webflow asset (image) with its metadata
+ */
+export interface Asset {
+  /**
+   * Unique identifier for the asset
+   */
+  id: string;
+  /**
+   * Original filename of the asset
+   */
+  name: string;
+  /**
+   * URL where the asset can be accessed
+   */
+  url: string;
+  /**
+   * Current alt text of the asset, if any
+   */
+  alt?: string;
+  /**
+   * Type of the asset (Library or Image)
+   */
+  type?: 'Library' | 'Image';
+  /**
+   * MIME type of the asset (e.g., 'image/jpeg', 'image/png')
+   */
+  mimeType: string;
+}
+
 // Environment Variables Type
 export interface ImportMetaEnv {
   VITE_NEXTJS_API_URL: string;
