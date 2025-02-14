@@ -21,9 +21,9 @@ import "./App.css";
 
 function AppContent() {
   const [hasClickedFetch, setHasClickedFetch] = useState(false);
-  const { user, sessionToken, exchangeAndVerifyIdToken, logout } = useAuth();
+  const { data: authState, exchangeAndVerifyIdToken, logout } = useAuth();
   const { sites, isLoading, isError, error, fetchSites } = useSites(
-    sessionToken,
+    authState?.sessionToken || "",
     hasClickedFetch
   );
 
@@ -79,9 +79,9 @@ function AppContent() {
         p: 0,
         overflow: 'hidden'
       }}>
-        {sessionToken ? (
+        {authState?.sessionToken ? (
           <Dashboard
-            user={user}
+            user={authState.user}
             sites={sites}
             isLoading={isLoading}
             isError={isError}

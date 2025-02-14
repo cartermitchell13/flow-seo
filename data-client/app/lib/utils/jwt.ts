@@ -108,20 +108,16 @@ const verifyAuth = async (request: NextRequest) => {
 /**
  * Retrieves Webflow access token for a specific site
  *
- * @param request - Incoming request containing siteId in body
+ * @param siteId - The site ID to get the access token for
  * @returns Promise<string | null> - Access token if found, null otherwise
  *
  * Flow:
- * 1. Extracts siteId from request body
- * 2. Looks up access token in database
- * 3. Handles errors and missing tokens
+ * 1. Looks up access token in database
+ * 2. Handles errors and missing tokens
  */
-const getAccessToken = async (request: NextRequest) => {
+const getAccessToken = async (siteId: string): Promise<string | null> => {
   try {
-    const body = await request.json();
-    const { siteId } = body;
-
-    // Get the access token from your database or wherever you store it
+    // Get the access token from the database
     const accessToken = await db.getAccessTokenFromSiteId(siteId);
 
     if (!accessToken) {

@@ -7,7 +7,10 @@ import { mkdir } from "fs/promises";
  * Database Utility
  * ---------------
  * This module provides functions to interact with a SQLite database.
- * It ensures a single connection to the database and manages tables for site and user authorizations.
+ * It ensures a single connection to the database and manages tables for:
+ * - Site authorizations
+ * - User authorizations
+ * - API keys
  */
 
 /**
@@ -19,12 +22,9 @@ import { mkdir } from "fs/promises";
  * 2. Establishes a connection to the SQLite database
  * 3. Initializes required tables:
  *    - SiteAuthorizations: Stores site ID and access token pairs
- *      - siteId: Unique identifier for a Webflow site (PRIMARY KEY)
- *      - accessToken: OAuth access token for that site
  *    - UserAuthorizations: Maps user IDs to their access tokens
- *      - id: Auto-incrementing primary key
- *      - userId: Identifier for the Webflow user
- *      - accessToken: OAuth access token for that user
+ *    - ApiKeys: Stores encrypted API keys for each provider
+ *    - SelectedProviders: Tracks the selected AI provider for each user/site
  *
  * @returns Promise<SQLiteDatabase> The database connection instance
  * @throws Error if database initialization fails
@@ -60,6 +60,26 @@ async function getDb() {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           userId TEXT,
           accessToken TEXT
+        );
+
+        DROP TABLE IF EXISTS apiKeys;
+        CREATE TABLE apiKeys (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId TEXT,
+          siteId TEXT,
+          provider TEXT,
+          encryptedKey TEXT,
+          createdAt INTEGER,
+          UNIQUE(userId, siteId, provider)
+        );
+
+        DROP TABLE IF EXISTS selectedProviders;
+        CREATE TABLE selectedProviders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          userId TEXT,
+          siteId TEXT,
+          provider TEXT,
+          UNIQUE(userId, siteId)
         );
       `);
     } catch (error) {
@@ -155,6 +175,76 @@ export async function getAccessTokenFromUserId(
 }
 
 /**
+ * Saves an encrypted API key for a specific provider.
+ *
+ * @param {string} userId - The user's ID
+ * @param {string} siteId - The site's ID
+ * @param {string} provider - The AI provider (e.g., 'openai')
+ * @param {string} encryptedKey - The encrypted API key
+ * @returns {Promise<void>}
+ */
+export async function saveApiKey(
+  userId: string,
+  siteId: string,
+  provider: string,
+  encryptedKey: string
+): Promise<void> {
+  const db = await getDb();
+  await db.run(
+    `REPLACE INTO apiKeys (userId, siteId, provider, encryptedKey, createdAt)
+     VALUES (?, ?, ?, ?, ?)`,
+    [userId, siteId, provider, encryptedKey, Date.now()]
+  );
+
+  // Update selected provider
+  await db.run(
+    `REPLACE INTO selectedProviders (userId, siteId, provider)
+     VALUES (?, ?, ?)`,
+    [userId, siteId, provider]
+  );
+}
+
+/**
+ * Gets the encrypted API key for a specific provider.
+ *
+ * @param {string} userId - The user's ID
+ * @param {string} siteId - The site's ID
+ * @param {string} provider - The AI provider
+ * @returns {Promise<string | null>} The encrypted API key if found
+ */
+export async function getApiKey(
+  userId: string,
+  siteId: string,
+  provider: string
+): Promise<string | null> {
+  const db = await getDb();
+  const row = await db.get(
+    "SELECT encryptedKey FROM apiKeys WHERE userId = ? AND siteId = ? AND provider = ?",
+    [userId, siteId, provider]
+  );
+  return row?.encryptedKey || null;
+}
+
+/**
+ * Gets the selected AI provider for a user.
+ *
+ * @param {string} userId - The user's ID
+ * @param {string} siteId - The site's ID
+ * @returns {Promise<string | null>} The selected provider if found
+ */
+export async function getSelectedProvider(
+  userId: string,
+  siteId: string
+): Promise<string | null> {
+  const db = await getDb();
+  const row = await db.get(
+    "SELECT provider FROM selectedProviders WHERE userId = ? AND siteId = ?",
+    [userId, siteId]
+  );
+  return row?.provider || null;
+}
+
+/**
  * Clears all data from the database.
  *
  * @returns {Promise<void>}
@@ -163,6 +253,8 @@ export async function clearDatabase() {
   const db = await getDb();
   await db.run("DELETE FROM siteAuthorizations");
   await db.run("DELETE FROM userAuthorizations");
+  await db.run("DELETE FROM apiKeys");
+  await db.run("DELETE FROM selectedProviders");
   console.log("Database cleared successfully");
 }
 
@@ -171,6 +263,9 @@ const database = {
   getAccessTokenFromUserId,
   insertSiteAuthorization,
   insertUserAuthorization,
+  saveApiKey,
+  getApiKey,
+  getSelectedProvider,
   clearDatabase,
 };
 

@@ -2,6 +2,12 @@ import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { jwtDecode } from "jwt-decode";
 import { User, DecodedToken } from "../types/types";
 
+// Import Webflow Designer API
+declare const webflow: {
+  getIdToken: () => Promise<string>;
+  getSiteInfo: () => Promise<{ siteId: string }>;
+};
+
 const base_url = import.meta.env.VITE_NEXTJS_API_URL;
 
 interface AuthState {
@@ -18,7 +24,8 @@ interface AuthState {
  *    - Exchanges it for a session token via API
  *
  * 2. Token Exchange -> tokenMutation
- *    - Sends ID token to Data Client
+ *    - Gets site info from Webflow
+ *    - Sends ID token and site ID to Data Client
  *    - Data Client validates and returns session token
  *    - On success, decodes and stores token + user data
  *
@@ -91,29 +98,41 @@ export function useAuth() {
   // Mutation for exchanging ID token for session token
   const tokenMutation = useMutation({
     mutationFn: async (idToken: string) => {
-      // Get site info from Webflow
-      const siteInfo = await webflow.getSiteInfo();
+      try {
+        // Get site info from Webflow
+        console.log("Getting site info...");
+        const siteInfo = await webflow.getSiteInfo();
+        console.log("Site info:", siteInfo);
 
-      // Exchange token with backend
-      const response = await fetch(`${base_url}/api/auth/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken: idToken, siteId: siteInfo.siteId }),
-      });
+        if (!siteInfo?.siteId) {
+          throw new Error("No site ID available from Webflow");
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(
-          `Failed to exchange token: ${JSON.stringify(errorData)}`
-        );
+        // Exchange token with backend
+        console.log("Exchanging token...");
+        const response = await fetch(`${base_url}/api/auth/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken, siteId: siteInfo.siteId }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            `Failed to exchange token: ${JSON.stringify(errorData)}`
+          );
+        }
+
+        const data = await response.json();
+        if (!data.sessionToken) {
+          throw new Error("No session token received");
+        }
+
+        return data;
+      } catch (error) {
+        console.error("Token exchange error:", error);
+        throw error;
       }
-
-      const data = await response.json();
-      if (!data.sessionToken) {
-        throw new Error("No session token received");
-      }
-
-      return data;
     },
     onSuccess: (data) => {
       try {
@@ -173,7 +192,9 @@ export function useAuth() {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Get new ID token from Webflow
+      console.log("Getting ID token...");
       const idToken = await webflow.getIdToken();
+      console.log("Got ID token:", !!idToken);
 
       // Validate token format
       if (!idToken || typeof idToken !== "string" || !idToken.trim()) {
@@ -200,12 +221,10 @@ export function useAuth() {
       user: { firstName: "", email: "" },
       sessionToken: "",
     });
-    queryClient.clear();
   };
 
   return {
-    user: authState?.user || { firstName: "", email: "" },
-    sessionToken: authState?.sessionToken || "",
+    data: authState,
     isAuthLoading,
     exchangeAndVerifyIdToken,
     logout,

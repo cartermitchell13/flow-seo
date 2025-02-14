@@ -44,6 +44,7 @@ export function Dashboard({ user }: DashboardProps) {
 
   // State for API key configuration dialog
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState(null);
 
   /**
    * Fetch assets when component mounts
@@ -118,7 +119,14 @@ export function Dashboard({ user }: DashboardProps) {
       <Dialog open={isConfigOpen} onClose={() => setIsConfigOpen(false)}>
         <DialogTitle>Configure AI Provider</DialogTitle>
         <DialogContent>
-          <AiProviderConfig onClose={() => setIsConfigOpen(false)} />
+          <AiProviderConfig 
+            onClose={() => setIsConfigOpen(false)} 
+            onSaveConfig={(provider) => {
+              setSelectedProvider(provider);
+              // Removed setIsConfigOpen(false) from here since it's handled by the timeout
+            }}
+            savedProvider={selectedProvider}
+          />
         </DialogContent>
       </Dialog>
     </Box>

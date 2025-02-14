@@ -19,7 +19,8 @@ export function AuthScreen({ onAuth }: { onAuth: () => void }) {
   const base_url = import.meta.env.VITE_NEXTJS_API_URL;
 
   // Initialize the auth hook which provides methods for authentication
-  const { user } = useAuth();
+  const { data: authState } = useAuth();
+  const user = authState?.user || { firstName: "", email: "" };
 
   // Function to open the authorization popup authorization window
   const openAuthScreen = () => {
