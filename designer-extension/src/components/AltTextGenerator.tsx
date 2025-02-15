@@ -8,8 +8,13 @@ import {
   CircularProgress,
   Alert,
   Stack,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import { AutoAwesome as GenerateIcon } from '@mui/icons-material';
+import { useAltTextGeneration } from '../hooks/useAltTextGeneration';
 
 interface AltTextGeneratorProps {
   selectedAssets: Array<{
@@ -18,30 +23,33 @@ interface AltTextGeneratorProps {
     url: string;
     alt?: string;
   }>;
-  onGenerateAltText: (assetId: string) => Promise<string>;
   onSaveAltText: (assetId: string, altText: string) => Promise<void>;
+  selectedProvider: 'openai' | 'anthropic';
 }
 
 export function AltTextGenerator({
   selectedAssets,
-  onGenerateAltText,
   onSaveAltText,
+  selectedProvider,
 }: AltTextGeneratorProps) {
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [editedAltTexts, setEditedAltTexts] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const { generateAltText, error, isGenerating } = useAltTextGeneration();
 
-  const handleGenerate = async (assetId: string) => {
+  const handleGenerate = async (assetId: string, imageUrl: string) => {
     try {
       setGeneratingFor(assetId);
-      setError(null);
-      const generatedAltText = await onGenerateAltText(assetId);
+      const generatedAltText = await generateAltText({
+        imageUrl,
+        provider: selectedProvider,
+      });
       setEditedAltTexts(prev => ({
         ...prev,
         [assetId]: generatedAltText
       }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate alt text');
+      // Error is handled by the hook
+      console.error('Failed to generate alt text:', err);
     } finally {
       setGeneratingFor(null);
     }
@@ -49,10 +57,9 @@ export function AltTextGenerator({
 
   const handleSave = async (assetId: string) => {
     try {
-      setError(null);
       await onSaveAltText(assetId, editedAltTexts[assetId]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save alt text');
+      console.error('Failed to save alt text:', err);
     }
   };
 
@@ -104,28 +111,29 @@ export function AltTextGenerator({
             fullWidth
             multiline
             rows={2}
+            variant="outlined"
             label="Alt Text"
             value={editedAltTexts[asset.id] || asset.alt || ''}
             onChange={(e) => handleEdit(asset.id, e.target.value)}
             sx={{ mb: 2 }}
           />
 
-          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
             <Button
               variant="contained"
+              color="primary"
               startIcon={generatingFor === asset.id ? <CircularProgress size={20} /> : <GenerateIcon />}
-              onClick={() => handleGenerate(asset.id)}
-              disabled={!!generatingFor}
+              onClick={() => handleGenerate(asset.id, asset.url)}
+              disabled={generatingFor !== null}
             >
-              {generatingFor === asset.id ? 'Generating...' : 'Generate Alt Text'}
+              Generate
             </Button>
-
             <Button
               variant="outlined"
               onClick={() => handleSave(asset.id)}
-              disabled={!editedAltTexts[asset.id] || generatingFor === asset.id}
+              disabled={!editedAltTexts[asset.id] || generatingFor !== null}
             >
-              Save Changes
+              Save
             </Button>
           </Box>
         </Paper>

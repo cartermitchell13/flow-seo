@@ -1,6 +1,38 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { GenerateAltTextRequest, GenerateAltTextResponse } from './types';
 
+/**
+ * Interface for image metadata
+ */
+interface ImageData {
+  base64: string;
+  mimeType: string;
+}
+
+/**
+ * Fetches an image from a URL and converts it to base64, detecting the mime type
+ */
+async function imageUrlToBase64(url: string): Promise<ImageData> {
+  const response = await fetch(url);
+  const contentType = response.headers.get('content-type');
+  
+  // Ensure we have a valid image type
+  if (!contentType || !contentType.startsWith('image/')) {
+    throw new Error('Invalid image type: ' + contentType);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const base64 = Buffer.from(arrayBuffer).toString('base64');
+
+  // Add proper base64 prefix
+  const prefix = `data:${contentType};base64,`;
+  
+  return {
+    base64,
+    mimeType: contentType
+  };
+}
+
 export async function generateAltTextWithAnthropic(
   request: GenerateAltTextRequest
 ): Promise<GenerateAltTextResponse> {
@@ -9,6 +41,9 @@ export async function generateAltTextWithAnthropic(
   });
 
   try {
+    // Convert image URL to base64 and get mime type
+    const { base64, mimeType } = await imageUrlToBase64(request.imageUrl);
+    
     const response = await anthropic.messages.create({
       model: "claude-3-opus-20240229",
       max_tokens: 100,
@@ -23,8 +58,9 @@ export async function generateAltTextWithAnthropic(
             {
               type: "image",
               source: {
-                type: "url",
-                url: request.imageUrl
+                type: "base64",
+                media_type: mimeType,
+                data: base64
               }
             }
           ]
