@@ -100,6 +100,8 @@ export function Dashboard({ user }: DashboardProps) {
       }
 
       setAssets(updatedAssets);
+      // Clear selection after successful generation
+      setSelectedAssets([]);
     } catch (error) {
       setAssetError(error instanceof Error ? error.message : 'Failed to generate alt text');
     } finally {

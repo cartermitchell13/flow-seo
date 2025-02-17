@@ -114,45 +114,17 @@ export function AssetBrowser({
         [`${assetId}_loading`]: true
       }));
 
-      // Get the current site ID from Webflow
-      const siteId = window.webflow?.site?.id;
-      if (!siteId) {
-        throw new Error('Could not determine site ID');
-      }
-
-      console.log('Making API request with:', {
-        siteId,
-        assetId,
-        altText
-      });
-
-      const response = await fetch('/api/update-alt-text', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          siteId,
-          assetId,
-          altText
-        })
-      });
-
-      console.log('Received response:', {
-        status: response.status,
-        ok: response.ok
-      });
-
-      const data = await response.json();
-      console.log('Response data:', data);
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to update alt text');
-      }
-
-      // Update was successful
-      console.log('Alt text update successful');
+      // Use the Webflow Designer API to update alt text directly
+      const assets = await window.webflow.getAllAssets();
+      const asset = assets.find(a => a.id === assetId);
       
+      if (!asset) {
+        throw new Error(`Asset with ID ${assetId} not found`);
+      }
+
+      // Update the alt text using Webflow Designer API
+      await asset.setAltText(altText);
+
       // Clear the edited state
       setEditedAltTexts(prev => {
         const { [assetId]: _, [`${assetId}_loading`]: __, ...rest } = prev;
@@ -165,11 +137,6 @@ export function AssetBrowser({
           type: 'success',
           message: 'Alt text updated successfully'
         });
-      }
-
-      // Try to refresh the asset in Webflow's UI
-      if (window.webflow?.triggerEvent) {
-        window.webflow.triggerEvent('assetUpdated', { assetId });
       }
 
     } catch (error: any) {
