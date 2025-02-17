@@ -109,15 +109,45 @@ export function Dashboard({ user }: DashboardProps) {
     }
   };
 
+  /**
+   * Handles updates to individual assets (e.g. alt text changes)
+   */
+  const handleAssetUpdate = (updatedAsset: Asset) => {
+    setAssets(prevAssets => {
+      const newAssets = [...prevAssets];
+      const index = newAssets.findIndex(a => a.id === updatedAsset.id);
+      if (index !== -1) {
+        newAssets[index] = updatedAsset;
+      }
+      return newAssets;
+    });
+  };
+
   const isGenerating = generatingFor.length > 0;
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#1A1A1A', color: 'white' }}>
       {/* Top Bar */}
       <Box sx={{ p: 2, borderBottom: '1px solid #333' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <ButtonGroup variant="contained" size="small">
+            <ButtonGroup 
+              variant="outlined" 
+              size="small"
+              sx={{
+                '& .MuiButton-root': {
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                  bgcolor: '#1E1E1E',
+                  textTransform: 'none',
+                  fontSize: '0.875rem',
+                  '&:hover': {
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                    bgcolor: '#262626',
+                  },
+                },
+              }}
+            >
               <Button>Select 10 w/o alt</Button>
               <Button>Deselect All</Button>
             </ButtonGroup>
@@ -128,20 +158,55 @@ export function Dashboard({ user }: DashboardProps) {
               startIcon={isGenerating ? <CircularProgress size={20} color="inherit" /> : <GenerateIcon />}
               onClick={handleGenerateAltText}
               disabled={selectedAssets.length === 0 || isGenerating}
+              sx={{
+                bgcolor: '#0084FF',
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                '&:hover': {
+                  bgcolor: '#0073E6',
+                },
+                '&.Mui-disabled': {
+                  bgcolor: 'rgba(0, 132, 255, 0.4)',
+                  color: 'rgba(255, 255, 255, 0.5)',
+                },
+              }}
             >
               {isGenerating ? `Generating (${generatingFor.length})...` : `Generate Alt Text (${selectedAssets.length})`}
             </Button>
           </Box>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Link href="#" color="inherit" underline="hover">
+            <Link 
+              href="#" 
+              color="inherit" 
+              underline="hover"
+              sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '0.875rem',
+                textDecoration: 'none',
+                '&:hover': {
+                  color: 'white',
+                },
+              }}
+            >
               How to use
             </Link>
             
             <Button
               startIcon={<KeyIcon />}
-              variant="contained"
+              variant="outlined"
               onClick={() => setIsConfigOpen(true)}
+              sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                bgcolor: '#1E1E1E',
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                '&:hover': {
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  bgcolor: '#262626',
+                },
+              }}
             >
               Configure API Key
             </Button>
@@ -160,6 +225,7 @@ export function Dashboard({ user }: DashboardProps) {
             assets={assets}
             selectedAssets={selectedAssets}
             onSelectionChange={handleAssetSelection}
+            onAssetUpdate={handleAssetUpdate}
           />
         )}
       </Box>
