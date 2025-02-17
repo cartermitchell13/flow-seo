@@ -86,12 +86,18 @@ export function AssetBrowser({
     onSelectionChange(newSelected);
   };
 
+  /**
+   * Handles changes to alt text input
+   */
   const handleAltTextChange = (assetId: string, value: string) => {
+    // Limit to 125 characters
+    const limitedValue = value.slice(0, 125);
+    
     setEditedAltTexts(prev => ({
       ...prev,
       [assetId]: {
-        loading: false,
-        value
+        value: limitedValue,
+        loading: false
       }
     }));
   };
@@ -103,7 +109,6 @@ export function AssetBrowser({
     // Don't save if there's no change
     const asset = assets.find(a => a.id === assetId);
     if (!asset || asset.alt === altText) {
-      // Clear any editing state
       setEditedAltTexts(prev => {
         const newState = { ...prev };
         delete newState[assetId];
@@ -135,6 +140,10 @@ export function AssetBrowser({
       // Update the alt text using Webflow Designer API
       await webflowAsset.setAltText(altText);
 
+      // Update the local asset state
+      const updatedAsset = { ...asset, alt: altText };
+      onAssetUpdate(updatedAsset);
+
       // Clear the edited state
       setEditedAltTexts(prev => {
         const newState = { ...prev };
@@ -142,11 +151,7 @@ export function AssetBrowser({
         return newState;
       });
 
-      // Update the local asset state by notifying parent
-      const updatedAsset = { ...asset, alt: altText };
-      onAssetUpdate(updatedAsset);
-
-      // Notify Webflow
+      // Notify success
       window.webflow.notify?.({
         type: 'success',
         message: 'Alt text updated successfully'
@@ -155,14 +160,12 @@ export function AssetBrowser({
     } catch (error: any) {
       console.error('Error saving alt text:', error);
       
-      // Clear loading state but keep the edited value
-      setEditedAltTexts(prev => ({
-        ...prev,
-        [assetId]: {
-          loading: false,
-          value: altText
-        }
-      }));
+      // Clear loading state
+      setEditedAltTexts(prev => {
+        const newState = { ...prev };
+        delete newState[assetId];
+        return newState;
+      });
 
       // Show error to user
       window.webflow.notify?.({
@@ -320,7 +323,7 @@ export function AssetBrowser({
                     id={altTextId}
                     fullWidth
                     multiline
-                    rows={4}
+                    rows={3}
                     size="small"
                     placeholder="Enter alt text"
                     value={editedAltText ?? asset.alt ?? ''}
@@ -334,12 +337,17 @@ export function AssetBrowser({
                     sx={{
                       flex: 1,
                       '& .MuiOutlinedInput-root': {
-                        bgcolor: 'rgba(0, 0, 0, 0.2)',
-                        height: '100%',
+                        bgcolor: 'var(--backgroundInput)',
                         '& textarea': {
                           fontSize: '0.75rem',
                           lineHeight: '1.4',
-                          height: '100% !important',
+                          height: '72px !important', // Fixed height for 3 rows
+                          overflow: 'hidden !important',
+                          '&::-webkit-scrollbar': {
+                            display: 'none',
+                          },
+                          scrollbarWidth: 'none',
+                          msOverflowStyle: 'none',
                         }
                       }
                     }}
@@ -349,7 +357,7 @@ export function AssetBrowser({
                     variant="caption"
                     color="text.secondary"
                   >
-                    {isLoading ? 'Saving...' : 'Press Enter or click outside to save'}
+                    {isLoading ? 'Saving...' : 'Click outside to save'}
                   </Typography>
                 </Box>
               </Box>

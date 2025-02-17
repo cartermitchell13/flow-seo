@@ -25,9 +25,14 @@ import { useAltTextGeneration } from '../hooks/useAltTextGeneration';
  */
 interface DashboardProps {
   user: { firstName: string };
+  sites: any[];
+  isLoading: boolean;
+  isError: boolean;
+  error: string | null;
+  onFetchSites: () => void;
 }
 
-export function Dashboard({ user }: DashboardProps) {
+export function Dashboard({ user, sites, isLoading, isError, error, onFetchSites }: DashboardProps) {
   // State for managing assets
   const [assets, setAssets] = useState<Asset[]>([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
@@ -123,101 +128,160 @@ export function Dashboard({ user }: DashboardProps) {
     });
   };
 
+  // Select 10 assets without alt text
+  const handleSelectWithoutAlt = () => {
+    const assetsWithoutAlt = assets
+      .filter(asset => !asset.alt)
+      .slice(0, 10)
+      .map(asset => asset.id);
+    setSelectedAssets(assetsWithoutAlt);
+  };
+
+  // Deselect all assets
+  const handleDeselectAll = () => {
+    setSelectedAssets([]);
+  };
+
   const isGenerating = generatingFor.length > 0;
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#1A1A1A', color: 'white' }}>
+    <Box sx={{ 
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      bgcolor: '#1A1A1A',
+      color: 'white'
+    }}>
       {/* Top Bar */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #333' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <ButtonGroup 
-              variant="outlined" 
-              size="small"
-              sx={{
-                '& .MuiButton-root': {
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                  bgcolor: '#1E1E1E',
-                  textTransform: 'none',
-                  fontSize: '0.875rem',
-                  '&:hover': {
-                    borderColor: 'rgba(255, 255, 255, 0.2)',
-                    bgcolor: '#262626',
-                  },
-                },
-              }}
-            >
-              <Button>Select 10 w/o alt</Button>
-              <Button>Deselect All</Button>
-            </ButtonGroup>
-
+      <Box sx={{ 
+        p: 2,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 2,
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+      }}>
+        {/* Left side */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <ButtonGroup size="small">
             <Button
-              variant="contained"
-              color="primary"
-              startIcon={isGenerating ? <CircularProgress size={20} color="inherit" /> : <GenerateIcon />}
-              onClick={handleGenerateAltText}
-              disabled={selectedAssets.length === 0 || isGenerating}
+              onClick={handleSelectWithoutAlt}
               sx={{
-                bgcolor: '#0084FF',
-                textTransform: 'none',
-                fontSize: '0.875rem',
-                '&:hover': {
-                  bgcolor: '#0073E6',
-                },
-                '&.Mui-disabled': {
-                  bgcolor: 'rgba(0, 132, 255, 0.4)',
-                  color: 'rgba(255, 255, 255, 0.5)',
-                },
-              }}
-            >
-              {isGenerating ? `Generating (${generatingFor.length})...` : `Generate Alt Text (${selectedAssets.length})`}
-            </Button>
-          </Box>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Link 
-              href="#" 
-              color="inherit" 
-              underline="hover"
-              sx={{
-                color: 'rgba(255, 255, 255, 0.7)',
-                fontSize: '0.875rem',
-                textDecoration: 'none',
-                '&:hover': {
-                  color: 'white',
-                },
-              }}
-            >
-              How to use
-            </Link>
-            
-            <Button
-              startIcon={<KeyIcon />}
-              variant="outlined"
-              onClick={() => setIsConfigOpen(true)}
-              sx={{
-                color: 'rgba(255, 255, 255, 0.7)',
+                bgcolor: 'rgba(0, 0, 0, 0.2)',
                 borderColor: 'rgba(255, 255, 255, 0.1)',
-                bgcolor: '#1E1E1E',
-                textTransform: 'none',
-                fontSize: '0.875rem',
+                color: 'rgba(255, 255, 255, 0.7)',
+                minWidth: '120px',
+                height: '32px',
                 '&:hover': {
+                  bgcolor: 'rgba(0, 0, 0, 0.3)',
                   borderColor: 'rgba(255, 255, 255, 0.2)',
-                  bgcolor: '#262626',
                 },
               }}
             >
-              Configure API Key
+              Select 10 w/o alt
             </Button>
-          </Box>
+            <Button
+              onClick={handleDeselectAll}
+              sx={{
+                bgcolor: 'rgba(0, 0, 0, 0.2)',
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                color: 'rgba(255, 255, 255, 0.7)',
+                minWidth: '100px',
+                height: '32px',
+                '&:hover': {
+                  bgcolor: 'rgba(0, 0, 0, 0.3)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                },
+              }}
+            >
+              Deselect All
+            </Button>
+          </ButtonGroup>
+
+          <Button
+            variant="contained"
+            disabled={selectedAssets.length === 0 || generatingFor.length > 0}
+            startIcon={<GenerateIcon />}
+            onClick={handleGenerateAltText}
+            sx={{
+              height: '32px',
+              bgcolor: '#0084FF',
+              '&:hover': {
+                bgcolor: '#0073E6',
+              },
+            }}
+          >
+            {generatingFor.length > 0 
+              ? `Generating (${generatingFor.length})...`
+              : `Generate Alt Text (${selectedAssets.length})`
+            }
+          </Button>
+        </Box>
+
+        {/* Right side */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            startIcon={<KeyIcon />}
+            onClick={() => setIsConfigOpen(true)}
+            sx={{
+              height: '32px',
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+              color: 'rgba(255, 255, 255, 0.7)',
+              '&:hover': {
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                bgcolor: 'rgba(0, 0, 0, 0.1)',
+              },
+            }}
+          >
+            Configure API Key
+          </Button>
+
+          <Link 
+            href="#" 
+            underline="hover"
+            sx={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontSize: '0.875rem',
+              textDecoration: 'none',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              '&:hover': {
+                color: 'white',
+              },
+            }}
+          >
+            How to use
+          </Link>
         </Box>
       </Box>
 
-      {/* Main Content */}
-      <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+      {/* Main Content - Scrollable Area */}
+      <Box sx={{ 
+        flex: 1,
+        overflow: 'auto',
+        p: 2,
+        '&::-webkit-scrollbar': {
+          width: '8px',
+          background: 'transparent',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: 'rgba(255, 255, 255, 0.2)',
+          borderRadius: '4px',
+          '&:hover': {
+            background: 'rgba(255, 255, 255, 0.3)',
+          },
+        },
+        '&::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+        scrollbarWidth: 'thin',
+        scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent',
+      }}>
         {isLoadingAssets ? (
-          <LoadingStates />
+          <LoadingStates isLoading={isLoadingAssets} isError={false} />
         ) : assetError ? (
           <Typography color="error">{assetError}</Typography>
         ) : (

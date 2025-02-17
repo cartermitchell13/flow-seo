@@ -18,7 +18,7 @@ interface WebflowSite {
 /**
  * Represents a Webflow asset in the Designer API
  */
-interface WebflowAsset {
+export interface WebflowAsset {
   /**
    * Unique identifier for the asset
    */
@@ -67,6 +67,11 @@ interface WebflowAsset {
    * @returns Promise resolving when parent is set
    */
   setParent(parent: WebflowAsset | null): Promise<void>;
+
+  /**
+   * The MIME type of the asset
+   */
+  mimeType: string;
 }
 
 interface WebflowDesignerExtensionContext {
@@ -98,6 +103,11 @@ interface Webflow {
 
 declare global {
   interface Window {
-    webflow?: Webflow;
+    webflow: {
+      getAllAssets: () => Promise<WebflowAsset[]>;
+      notify?: (options: { type: 'success' | 'error'; message: string }) => void;
+    };
   }
 }
+
+export {};

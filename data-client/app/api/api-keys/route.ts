@@ -196,7 +196,9 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// Handle OPTIONS request for CORS
+/**
+ * Handle OPTIONS request for CORS
+ */
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, { headers: corsHeaders });
 }

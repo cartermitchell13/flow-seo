@@ -45,58 +45,57 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
   const [hasKey, setHasKey] = useState(false);
 
   // Get authentication state and site info
-  const { data: authState, isAuthLoading, exchangeAndVerifyIdToken } = useAuth();
+  const { data: authState, isAuthLoading } = useAuth();
   const { sites } = useSites(authState?.sessionToken || '', true);
+
+  /**
+   * Checks if an API key exists for the current provider
+   */
+  const checkApiKey = async () => {
+    if (!authState?.sessionToken || !sites?.[0]?.id) return;
+
+    try {
+      const response = await fetch(`http://localhost:3000/api/api-keys?provider=${provider}`, {
+        headers: {
+          'Authorization': `Bearer ${authState.sessionToken}`,
+        },
+      });
+
+      if (response.ok) {
+        setHasKey(true);
+        setApiKey(''); // Clear input field when key exists
+      } else {
+        setHasKey(false);
+      }
+    } catch (err) {
+      console.error('Error checking API key:', err);
+      setHasKey(false);
+    }
+  };
 
   // Check if API key exists for the current provider
   useEffect(() => {
-    const checkApiKey = async () => {
-      if (!authState?.sessionToken || !sites?.[0]?.id) return;
-
-      try {
-        const response = await fetch(`http://localhost:3000/api/api-keys?provider=${provider}`, {
-          headers: {
-            'Authorization': `Bearer ${authState.sessionToken}`,
-          },
-        });
-
-        if (response.ok) {
-          setHasKey(true);
-          setApiKey(''); // Clear input field when key exists
-        } else {
-          setHasKey(false);
-        }
-      } catch (err) {
-        console.error('Error checking API key:', err);
-        setHasKey(false);
-      }
-    };
-
     checkApiKey();
   }, [provider, authState?.sessionToken, sites]);
 
-  /**
-   * Handles removing the API key for the current provider
-   */
+  // Handle removing API key
   const handleRemoveKey = async () => {
     if (!authState?.sessionToken || !sites?.[0]?.id) {
       setError('Not authenticated. Please log in first.');
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
     try {
+      setIsLoading(true);
       const response = await fetch('http://localhost:3000/api/api-keys', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authState.sessionToken}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           provider,
-          siteId: sites[0].id
+          siteId: sites[0].id,
         }),
       });
 
@@ -105,17 +104,23 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
         throw new Error(data.error || 'Failed to remove API key');
       }
 
+      setApiKey('');
       setHasKey(false);
       setSuccess(true);
-      setApiKey('');
+      window.webflow.notify?.({
+        type: 'success',
+        message: 'API key removed successfully',
+      });
 
-      // Show success message briefly
+      // Close dialog after success
       setTimeout(() => {
         setSuccess(false);
-      }, 2500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      console.error('API Key Remove Error:', err);
+        onClose();
+      }, 1500);
+
+    } catch (error) {
+      console.error('Error removing API key:', error);
+      setError(error instanceof Error ? error.message : 'Failed to remove API key');
     } finally {
       setIsLoading(false);
     }
@@ -229,33 +234,80 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
           </Select>
         </FormControl>
 
-        <FormControl fullWidth variant="outlined">
-          <InputLabel htmlFor="api-key-input">API Key</InputLabel>
-          <TextField
-            id="api-key-input"
-            type={showApiKey ? 'text' : 'password'}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            label="API Key"
-            aria-label={`${provider} API Key`}
-            aria-invalid={error ? 'true' : 'false'}
-            aria-describedby={error ? 'api-key-error' : undefined}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    onMouseDown={(e) => e.preventDefault()}
-                    edge="end"
-                  >
-                    {showApiKey ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </FormControl>
+        {hasKey ? (
+          <Alert 
+            severity="info" 
+            action={
+              <Button
+                color="error"
+                size="small"
+                onClick={handleRemoveKey}
+                disabled={isLoading}
+                startIcon={<Delete />}
+                sx={{
+                  bgcolor: 'var(--redBackground)',
+                  color: 'var(--text1)',
+                  '&:hover': {
+                    bgcolor: 'var(--redBackgroundHover)',
+                  },
+                }}
+              >
+                Remove Key
+              </Button>
+            }
+          >
+            API key is configured for {provider}
+          </Alert>
+        ) : (
+          <FormControl fullWidth variant="outlined">
+            <TextField
+              type={showApiKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Enter your API key"
+              fullWidth
+              aria-label={`${provider} API Key`}
+              aria-invalid={error ? 'true' : 'false'}
+              aria-describedby={error ? 'api-key-error' : undefined}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      edge="end"
+                    >
+                      {showApiKey ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                '& .MuiInputBase-input': {
+                  bgcolor: 'var(--backgroundInput)',
+                  color: 'var(--text1)',
+                  '&::placeholder': {
+                    color: 'var(--text3)',
+                    opacity: 1,
+                  },
+                },
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: 'transparent',
+                  '& fieldset': {
+                    borderColor: 'var(--border1)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'var(--border2)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'var(--border3)',
+                  },
+                },
+              }}
+            />
+          </FormControl>
+        )}
 
         {error && (
           <Alert 
