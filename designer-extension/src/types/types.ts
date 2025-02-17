@@ -157,6 +157,15 @@ export interface ScriptStatus {
 }
 
 /**
+ * Response for alt text update operations
+ */
+export interface AltTextUpdateResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+/**
  * Asset Interface
  * 
  * Represents a Webflow asset (image) with its metadata

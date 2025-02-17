@@ -17,7 +17,7 @@ import { LoadingStates } from './LoadingStates.tsx';
 import { AssetBrowser } from './AssetBrowser';
 import { AiProviderConfig } from './AiProviderConfig';
 import { Asset } from '../types/types.ts';
-import { fetchAssets } from '../api/assets';
+import { fetchAssets, updateAssetAltText } from '../api/assets';
 import { useAltTextGeneration } from '../hooks/useAltTextGeneration';
 
 /**
@@ -82,7 +82,10 @@ export function Dashboard({ user }: DashboardProps) {
             provider: selectedProvider
           });
 
-          // Update asset with new alt text
+          // Update asset with new alt text in Webflow
+          await updateAssetAltText(asset.id, altText);
+
+          // Update local state
           const assetIndex = updatedAssets.findIndex(a => a.id === asset.id);
           if (assetIndex !== -1) {
             updatedAssets[assetIndex] = {
@@ -91,14 +94,14 @@ export function Dashboard({ user }: DashboardProps) {
             };
           }
         } catch (error) {
-          console.error(`Failed to generate alt text for ${asset.name}:`, error);
+          console.error(`Error processing asset ${asset.id}:`, error);
+          // Continue with other assets even if one fails
         }
       }
 
       setAssets(updatedAssets);
-      
-      // Reset selection after successful generation
-      setSelectedAssets([]);
+    } catch (error) {
+      setAssetError(error instanceof Error ? error.message : 'Failed to generate alt text');
     } finally {
       setGeneratingFor([]);
     }

@@ -51,3 +51,29 @@ export const fetchAssets = async (): Promise<Asset[]> => {
     throw error;
   }
 };
+
+/**
+ * Updates the alt text for a specific asset in Webflow
+ * @param assetId - The ID of the asset to update
+ * @param altText - The new alt text to set
+ * @returns Promise<boolean> - True if update was successful
+ */
+export const updateAssetAltText = async (assetId: string, altText: string): Promise<boolean> => {
+  try {
+    // Get all assets to find the one we want to update
+    const assets = await window.webflow.getAllAssets();
+    const asset = assets.find(a => a.id === assetId);
+    
+    if (!asset) {
+      throw new Error(`Asset with ID ${assetId} not found`);
+    }
+
+    // Update the alt text using Webflow Designer API
+    await asset.setAltText(altText);
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating asset alt text:', error);
+    throw error;
+  }
+};
