@@ -205,6 +205,36 @@ export async function saveApiKey(
 }
 
 /**
+ * Deletes an API key for a specific provider.
+ *
+ * @param {string} userId - The user's ID
+ * @param {string} siteId - The site's ID
+ * @param {string} provider - The AI provider
+ * @returns {Promise<void>}
+ */
+export async function deleteApiKey(
+  userId: string,
+  siteId: string,
+  provider: string
+): Promise<void> {
+  const db = await getDb();
+  
+  // Delete the API key
+  await db.run(
+    `DELETE FROM apiKeys 
+     WHERE userId = ? AND siteId = ? AND provider = ?`,
+    [userId, siteId, provider]
+  );
+
+  // Also remove from selected providers if it was selected
+  await db.run(
+    `DELETE FROM selectedProviders 
+     WHERE userId = ? AND siteId = ? AND provider = ?`,
+    [userId, siteId, provider]
+  );
+}
+
+/**
  * Gets the encrypted API key for a specific provider.
  *
  * @param {string} userId - The user's ID
@@ -266,6 +296,7 @@ const database = {
   saveApiKey,
   getApiKey,
   getSelectedProvider,
+  deleteApiKey,
   clearDatabase,
 };
 

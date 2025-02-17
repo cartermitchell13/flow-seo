@@ -17,7 +17,7 @@ import auth from "../../lib/utils/auth";
 // CORS headers for cross-origin requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'http://localhost:1337',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Allow-Credentials': 'true',
 };
@@ -133,6 +133,61 @@ export async function GET(request: NextRequest) {
     console.error("Error retrieving API key:", error);
     return NextResponse.json(
       { error: "Failed to retrieve API key" },
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
+    );
+  }
+}
+
+/**
+ * Delete API Key
+ * DELETE /api/api-keys
+ */
+export async function DELETE(request: NextRequest) {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Verify access token and get user
+    const user = await auth.verifyAccessToken(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { 
+        status: 401,
+        headers: corsHeaders
+      });
+    }
+
+    // Get request body
+    const body = await request.json();
+    const { provider } = body;
+
+    // Validate request
+    if (!provider) {
+      return NextResponse.json(
+        { error: "Missing provider" },
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
+    }
+
+    // Delete API key
+    await apiKeysController.deleteApiKey(
+      user.id,
+      user.workspaces[0]?.id || "default",
+      provider
+    );
+
+    return NextResponse.json({ success: true }, { headers: corsHeaders });
+  } catch (error) {
+    console.error("Error deleting API key:", error);
+    return NextResponse.json(
+      { error: "Failed to delete API key" },
       { 
         status: 500,
         headers: corsHeaders

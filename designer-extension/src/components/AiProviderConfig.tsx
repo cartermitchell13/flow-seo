@@ -13,8 +13,9 @@ import {
   InputAdornment,
   Alert,
   CircularProgress,
+  Stack,
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Visibility, VisibilityOff, Delete } from '@mui/icons-material';
 import { useAuth } from '../hooks/useAuth';
 import { useSites } from '../hooks/useSites';
 
@@ -41,22 +42,84 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [hasKey, setHasKey] = useState(false);
 
   // Get authentication state and site info
   const { data: authState, isAuthLoading, exchangeAndVerifyIdToken } = useAuth();
   const { sites } = useSites(authState?.sessionToken || '', true);
 
-  // Debug authentication state
-  console.log('Auth State:', authState);
-  console.log('Sites:', sites);
-
-  // Attempt to authenticate if not already authenticated
+  // Check if API key exists for the current provider
   useEffect(() => {
-    if (!authState?.sessionToken && !isAuthLoading) {
-      console.log('No session token, initiating auth...');
-      exchangeAndVerifyIdToken();
+    const checkApiKey = async () => {
+      if (!authState?.sessionToken || !sites?.[0]?.id) return;
+
+      try {
+        const response = await fetch(`http://localhost:3000/api/api-keys?provider=${provider}`, {
+          headers: {
+            'Authorization': `Bearer ${authState.sessionToken}`,
+          },
+        });
+
+        if (response.ok) {
+          setHasKey(true);
+          setApiKey(''); // Clear input field when key exists
+        } else {
+          setHasKey(false);
+        }
+      } catch (err) {
+        console.error('Error checking API key:', err);
+        setHasKey(false);
+      }
+    };
+
+    checkApiKey();
+  }, [provider, authState?.sessionToken, sites]);
+
+  /**
+   * Handles removing the API key for the current provider
+   */
+  const handleRemoveKey = async () => {
+    if (!authState?.sessionToken || !sites?.[0]?.id) {
+      setError('Not authenticated. Please log in first.');
+      return;
     }
-  }, [authState?.sessionToken, isAuthLoading, exchangeAndVerifyIdToken]);
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('http://localhost:3000/api/api-keys', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authState.sessionToken}`,
+        },
+        body: JSON.stringify({ 
+          provider,
+          siteId: sites[0].id
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to remove API key');
+      }
+
+      setHasKey(false);
+      setSuccess(true);
+      setApiKey('');
+
+      // Show success message briefly
+      setTimeout(() => {
+        setSuccess(false);
+      }, 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      console.error('API Key Remove Error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   /**
    * Securely saves the API key to the backend
@@ -90,7 +153,7 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
         body: JSON.stringify({ 
           provider, 
           apiKey,
-          siteId: sites[0].id // Include site ID for authentication
+          siteId: sites[0].id
         }),
       });
 
@@ -102,12 +165,13 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
       // Clear form and show success
       setApiKey('');
       setSuccess(true);
+      setHasKey(true);
       onSaveConfig(provider);
       
-      // Close the config dialog after showing success message
+      // Show success message for 2.5 seconds
       setTimeout(() => {
-        onClose();
-      }, 2500); // Increased to 2.5 seconds for better visibility
+        setSuccess(false);
+      }, 2500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       console.error('API Key Save Error:', err);
@@ -148,7 +212,7 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
       
       {success && (
         <Alert severity="success" sx={{ mb: 2 }}>
-          API key saved successfully
+          {hasKey ? 'API key saved successfully' : 'API key removed successfully'}
         </Alert>
       )}
 
@@ -166,41 +230,63 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
           </Select>
         </FormControl>
 
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <TextField
-            label="API Key"
-            type={showApiKey ? 'text' : 'password'}
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            disabled={isLoading}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    edge="end"
-                    disabled={isLoading}
-                  >
-                    {showApiKey ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-        </FormControl>
+        {hasKey ? (
+          <Alert 
+            severity="info" 
+            sx={{ mb: 2 }}
+            action={
+              <Button
+                color="error"
+                size="small"
+                onClick={handleRemoveKey}
+                disabled={isLoading}
+                startIcon={<Delete />}
+              >
+                Remove Key
+              </Button>
+            }
+          >
+            API key is configured for {provider}
+          </Alert>
+        ) : (
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <TextField
+              label="API Key"
+              type={showApiKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              disabled={isLoading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      edge="end"
+                      disabled={isLoading}
+                    >
+                      {showApiKey ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </FormControl>
+        )}
 
-        <Button
-          type="submit"
-          variant="contained"
-          fullWidth
-          disabled={!apiKey || !provider || isLoading}
-        >
-          {isLoading ? (
-            <CircularProgress size={24} color="inherit" />
-          ) : (
-            'Save Configuration'
-          )}
-        </Button>
+        {!hasKey && (
+          <Button
+            type="submit"
+            variant="contained"
+            fullWidth
+            disabled={!apiKey || !provider || isLoading}
+          >
+            {isLoading ? (
+              <CircularProgress size={24} color="inherit" />
+            ) : (
+              'Save Configuration'
+            )}
+          </Button>
+        )}
       </Box>
     </Paper>
   );

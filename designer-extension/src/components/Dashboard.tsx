@@ -243,7 +243,6 @@ export function Dashboard({ user }: DashboardProps) {
             onClose={() => setIsConfigOpen(false)}
             onSaveConfig={(provider) => {
               setSelectedProvider(provider as 'openai' | 'anthropic');
-              setIsConfigOpen(false);
             }}
             savedProvider={selectedProvider}
           />

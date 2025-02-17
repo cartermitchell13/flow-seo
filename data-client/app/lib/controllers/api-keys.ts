@@ -79,5 +79,24 @@ export const apiKeysController = {
       console.error('Error in getApiKey:', { error, userId, siteId, provider });
       return null;
     }
+  },
+
+  /**
+   * Delete an API key for a specific provider
+   * @param userId - The user's ID
+   * @param siteId - The site's ID
+   * @param provider - The provider to delete the key for
+   */
+  async deleteApiKey(userId: string, siteId: string, provider: string): Promise<boolean> {
+    try {
+      // Delete from database
+      await database.deleteApiKey(userId, siteId, provider);
+      console.log('API key deleted for:', { userId, siteId, provider });
+      
+      return true;
+    } catch (error) {
+      console.error('Error in deleteApiKey:', { error, userId, siteId, provider });
+      throw error;
+    }
   }
 };
