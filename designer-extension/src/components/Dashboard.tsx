@@ -44,7 +44,7 @@ export function Dashboard({ user, sites, isLoading, isError, error, onFetchSites
 
   // State for API key configuration
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'anthropic'>('openai');
+  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'anthropic'>('anthropic');
 
   // Alt text generation hook
   const { generateAltText, error: generationError } = useAltTextGeneration();

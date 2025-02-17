@@ -42,6 +42,7 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [hasKey, setHasKey] = useState(false);
 
   // Get authentication state and site info
@@ -72,6 +73,13 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
       setHasKey(false);
     }
   };
+
+  // Handle provider selection
+  useEffect(() => {
+    if (savedProvider) {
+      setProvider(savedProvider as 'openai' | 'anthropic');
+    }
+  }, [savedProvider]);
 
   // Check if API key exists for the current provider
   useEffect(() => {
@@ -107,6 +115,7 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
       setApiKey('');
       setHasKey(false);
       setSuccess(true);
+      setSuccessMessage('API key removed successfully');
       window.webflow.notify?.({
         type: 'success',
         message: 'API key removed successfully',
@@ -167,19 +176,34 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
         throw new Error(data.error || 'Failed to save API key');
       }
 
+      // Verify the API key was saved by checking it exists
+      const verifyResponse = await fetch(`http://localhost:3000/api/api-keys?provider=${provider}`, {
+        headers: {
+          'Authorization': `Bearer ${authState.sessionToken}`,
+        },
+      });
+
+      if (!verifyResponse.ok) {
+        throw new Error('Failed to verify API key was saved');
+      }
+
       // Clear form and show success
       setApiKey('');
       setSuccess(true);
+      setSuccessMessage('API key saved successfully');
       setHasKey(true);
       onSaveConfig(provider);
       
-      // Show success message for 2.5 seconds
+      // Close dialog after success
       setTimeout(() => {
         setSuccess(false);
-      }, 2500);
+        onClose();
+      }, 1500);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       console.error('API Key Save Error:', err);
+      setHasKey(false);
     } finally {
       setIsLoading(false);
     }
@@ -309,22 +333,25 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
           </FormControl>
         )}
 
-        {error && (
-          <Alert 
-            severity="error" 
-            id="api-key-error"
-            role="alert"
-          >
-            {error}
-          </Alert>
-        )}
-
+        {/* Success Alert */}
         {success && (
-          <Alert 
+          <Alert
+            sx={{ mb: 2 }}
             severity="success"
             role="alert"
           >
-            API key saved successfully
+            {successMessage}
+          </Alert>
+        )}
+
+        {/* Error Alert */}
+        {error && (
+          <Alert
+            sx={{ mb: 2 }}
+            severity="error"
+            role="alert"
+          >
+            {error}
           </Alert>
         )}
 
