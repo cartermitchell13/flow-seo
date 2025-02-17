@@ -9,6 +9,14 @@ import {
   Chip,
   Stack,
 } from '@mui/material';
+import { WebflowAsset } from '../types/webflow';
+
+interface LoadingState {
+  [key: string]: {
+    loading: boolean;
+    value: string;
+  };
+}
 
 /**
  * Asset Interface
@@ -46,40 +54,29 @@ interface AssetBrowserProps {
   isLoading?: boolean;
 }
 
+declare global {
+  interface Window {
+    webflow: {
+      getAllAssets: () => Promise<WebflowAsset[]>;
+      notify?: (options: { type: 'success' | 'error'; message: string }) => void;
+    };
+  }
+}
+
 /**
  * AssetBrowser Component
- * 
- * Displays a list of Webflow assets with their thumbnails and alt text.
- * Follows Webflow's design system and component patterns.
- * 
- * Features:
- * - Image thumbnail display
- * - Checkbox selection for batch operations
- * - Inline alt text editing
- * - Asset type indicators (Library/Image)
- * - Loading and empty states
- * 
- * @param props AssetBrowserProps - Component properties
- * @returns React component
  */
 export function AssetBrowser({ 
   assets, 
   selectedAssets, 
-  onSelectionChange, 
-  isLoading = false 
+  onSelectionChange
 }: AssetBrowserProps) {
   /**
    * Local state for tracking edited alt text values
    * This allows immediate UI feedback while editing
    */
-  const [editedAltTexts, setEditedAltTexts] = useState<Record<string, string>>({});
+  const [editedAltTexts, setEditedAltTexts] = useState<LoadingState>({});
 
-  /**
-   * Handles toggling selection of an asset
-   * Updates parent component's selection state
-   * 
-   * @param assetId - ID of the asset to toggle
-   */
   const handleToggle = (assetId: string) => {
     const newSelected = selectedAssets.includes(assetId)
       ? selectedAssets.filter(id => id !== assetId)
@@ -87,17 +84,13 @@ export function AssetBrowser({
     onSelectionChange(newSelected);
   };
 
-  /**
-   * Handles changes to alt text input fields
-   * Stores the edited value in local state
-   * 
-   * @param assetId - ID of the asset being edited
-   * @param value - New alt text value
-   */
   const handleAltTextChange = (assetId: string, value: string) => {
     setEditedAltTexts(prev => ({
       ...prev,
-      [assetId]: value
+      [assetId]: {
+        loading: false,
+        value
+      }
     }));
   };
 
@@ -111,12 +104,15 @@ export function AssetBrowser({
       // Show loading state
       setEditedAltTexts(prev => ({
         ...prev,
-        [`${assetId}_loading`]: true
+        [assetId]: {
+          loading: true,
+          value: altText
+        }
       }));
 
       // Use the Webflow Designer API to update alt text directly
       const assets = await window.webflow.getAllAssets();
-      const asset = assets.find(a => a.id === assetId);
+      const asset = assets.find((a: WebflowAsset) => a.id === assetId);
       
       if (!asset) {
         throw new Error(`Asset with ID ${assetId} not found`);
@@ -127,34 +123,32 @@ export function AssetBrowser({
 
       // Clear the edited state
       setEditedAltTexts(prev => {
-        const { [assetId]: _, [`${assetId}_loading`]: __, ...rest } = prev;
-        return rest;
+        const newState = { ...prev };
+        delete newState[assetId];
+        return newState;
       });
 
       // Notify Webflow
-      if (window.webflow?.notify) {
-        window.webflow.notify({
-          type: 'success',
-          message: 'Alt text updated successfully'
-        });
-      }
+      window.webflow.notify?.({
+        type: 'success',
+        message: 'Alt text updated successfully'
+      });
 
     } catch (error: any) {
       console.error('Error saving alt text:', error);
       
       // Clear loading state
       setEditedAltTexts(prev => {
-        const { [`${assetId}_loading`]: _, ...rest } = prev;
-        return rest;
+        const newState = { ...prev };
+        delete newState[assetId];
+        return newState;
       });
 
       // Show error to user
-      if (window.webflow?.notify) {
-        window.webflow.notify({
-          type: 'error',
-          message: `Failed to update alt text: ${error.message}`
-        });
-      }
+      window.webflow.notify?.({
+        type: 'error',
+        message: `Failed to update alt text: ${error.message}`
+      });
     }
   };
 
@@ -170,31 +164,32 @@ export function AssetBrowser({
   }
 
   return (
-    <List sx={{ width: '100%', bgcolor: 'transparent' }}>
+    <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
       {assets.map((asset) => {
+        const labelId = `asset-list-label-${asset.id}`;
         const isSelected = selectedAssets.includes(asset.id);
+        const editedAltText = editedAltTexts[asset.id]?.value;
+        const isLoading = editedAltTexts[asset.id]?.loading;
 
         return (
           <ListItem
             key={asset.id}
+            dense
+            divider
             sx={{
-              borderBottom: '1px solid #333',
-              py: 2,
-              '&:hover': {
-                bgcolor: 'rgba(255, 255, 255, 0.05)'
-              }
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              py: 2
             }}
           >
-            {/* Asset Container */}
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%', gap: 2 }}>
-              {/* Selection Checkbox */}
+            <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', mb: 1 }}>
               <Checkbox
                 edge="start"
                 checked={isSelected}
                 onChange={() => handleToggle(asset.id)}
-                sx={{ mt: 1 }}
+                inputProps={{ 'aria-labelledby': labelId }}
               />
-
               {/* Asset Thumbnail */}
               <Box
                 component="img"
@@ -205,55 +200,33 @@ export function AssetBrowser({
                   height: 60,
                   objectFit: 'cover',
                   borderRadius: 1,
-                  bgcolor: '#333'
+                  mr: 2
                 }}
               />
-
-              {/* Asset Information and Alt Text Editor */}
-              <Box sx={{ flex: 1 }}>
-                {/* Asset Header: Name and Type */}
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  <Typography variant="subtitle1" sx={{ color: 'white' }}>
-                    {asset.name}
-                  </Typography>
+              <Typography variant="subtitle1" component="div" id={labelId}>
+                {asset.name}
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ ml: 'auto' }}>
+                {asset.type && (
                   <Chip
-                    label={asset.type || 'Image'}
+                    label={asset.type}
                     size="small"
-                    sx={{
-                      bgcolor: 'rgba(255, 255, 255, 0.1)',
-                      color: 'white'
-                    }}
+                    color={asset.type === 'Library' ? 'primary' : 'default'}
                   />
-                </Stack>
-
-                {/* Alt Text Input Field */}
-                <TextField
-                  fullWidth
-                  multiline
-                  size="small"
-                  placeholder="No alt text"
-                  value={editedAltTexts[asset.id] ?? asset.alt ?? ''}
-                  onChange={(e) => handleAltTextChange(asset.id, e.target.value)}
-                  onBlur={() => {
-                    const newAltText = editedAltTexts[asset.id];
-                    if (newAltText !== undefined && newAltText !== asset.alt) {
-                      saveAltText(asset.id, newAltText);
-                    }
-                  }}
-                  disabled={!!editedAltTexts[`${asset.id}_loading`]}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      color: 'white',
-                      '& fieldset': {
-                        borderColor: 'rgba(255, 255, 255, 0.23)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(255, 255, 255, 0.4)',
-                      },
-                    },
-                  }}
-                />
-              </Box>
+                )}
+              </Stack>
+            </Box>
+            <Box sx={{ width: '100%', pl: 7 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Alt Text"
+                value={editedAltText ?? asset.alt ?? ''}
+                onChange={(e) => handleAltTextChange(asset.id, e.target.value)}
+                onBlur={(e) => saveAltText(asset.id, e.target.value)}
+                disabled={isLoading}
+                helperText={isLoading ? 'Saving...' : undefined}
+              />
             </Box>
           </ListItem>
         );
