@@ -199,95 +199,109 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
   }
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h6" gutterBottom>
+    <Box 
+      component="form" 
+      onSubmit={handleSubmit}
+      role="dialog"
+      aria-labelledby="ai-provider-config-title"
+      aria-describedby="ai-provider-config-description"
+    >
+      <Typography id="ai-provider-config-title" variant="h6" component="h2" mb={2}>
         AI Provider Configuration
       </Typography>
-      
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {hasKey ? 'API key saved successfully' : 'API key removed successfully'}
-        </Alert>
-      )}
+      <Typography id="ai-provider-config-description" variant="body2" color="text.secondary" mb={3}>
+        Configure your preferred AI provider for generating alt text
+      </Typography>
 
-      <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-        <FormControl fullWidth sx={{ mb: 2 }}>
-          <InputLabel>AI Provider</InputLabel>
+      <Stack spacing={3}>
+        <FormControl fullWidth>
+          <InputLabel id="provider-select-label">AI Provider</InputLabel>
           <Select
+            labelId="provider-select-label"
+            id="provider-select"
             value={provider}
-            label="AI Provider"
             onChange={(e) => setProvider(e.target.value)}
-            disabled={isLoading}
+            aria-label="Select AI Provider"
+            label="AI Provider"
           >
             <MenuItem value="openai">OpenAI (GPT-4 Vision)</MenuItem>
             <MenuItem value="anthropic">Anthropic (Claude)</MenuItem>
           </Select>
         </FormControl>
 
-        {hasKey ? (
+        <FormControl fullWidth variant="outlined">
+          <InputLabel htmlFor="api-key-input">API Key</InputLabel>
+          <TextField
+            id="api-key-input"
+            type={showApiKey ? 'text' : 'password'}
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            label="API Key"
+            aria-label={`${provider} API Key`}
+            aria-invalid={error ? 'true' : 'false'}
+            aria-describedby={error ? 'api-key-error' : undefined}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    onMouseDown={(e) => e.preventDefault()}
+                    edge="end"
+                  >
+                    {showApiKey ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+        </FormControl>
+
+        {error && (
           <Alert 
-            severity="info" 
-            sx={{ mb: 2 }}
-            action={
-              <Button
-                color="error"
-                size="small"
-                onClick={handleRemoveKey}
-                disabled={isLoading}
-                startIcon={<Delete />}
-              >
-                Remove Key
-              </Button>
-            }
+            severity="error" 
+            id="api-key-error"
+            role="alert"
           >
-            API key is configured for {provider}
+            {error}
           </Alert>
-        ) : (
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <TextField
-              label="API Key"
-              type={showApiKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              disabled={isLoading}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      edge="end"
-                      disabled={isLoading}
-                    >
-                      {showApiKey ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </FormControl>
         )}
 
-        {!hasKey && (
+        {success && (
+          <Alert 
+            severity="success"
+            role="alert"
+          >
+            API key saved successfully
+          </Alert>
+        )}
+
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+          <Button
+            onClick={onClose}
+            variant="outlined"
+            disabled={isLoading}
+            aria-label="Cancel configuration"
+          >
+            Cancel
+          </Button>
           <Button
             type="submit"
             variant="contained"
-            fullWidth
-            disabled={!apiKey || !provider || isLoading}
+            disabled={isLoading || !apiKey}
+            aria-label="Save API key configuration"
           >
             {isLoading ? (
-              <CircularProgress size={24} color="inherit" />
+              <>
+                <CircularProgress size={20} sx={{ mr: 1 }} />
+                Saving...
+              </>
             ) : (
-              'Save Configuration'
+              'Save'
             )}
           </Button>
-        )}
-      </Box>
-    </Paper>
+        </Box>
+      </Stack>
+    </Box>
   );
 }

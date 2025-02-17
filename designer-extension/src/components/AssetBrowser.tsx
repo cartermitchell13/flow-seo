@@ -185,6 +185,8 @@ export function AssetBrowser({
 
   return (
     <Box 
+      role="region"
+      aria-label="Asset Browser"
       sx={{ 
         width: '100%',
         px: 0,
@@ -195,9 +197,12 @@ export function AssetBrowser({
         container 
         spacing={2}
         columns={12}
+        role="list"
+        aria-label="Image assets list"
       >
         {assets.map((asset) => {
           const labelId = `asset-list-label-${asset.id}`;
+          const altTextId = `alt-text-input-${asset.id}`;
           const isSelected = selectedAssets.includes(asset.id);
           const editedAltText = editedAltTexts[asset.id]?.value;
           const isLoading = editedAltTexts[asset.id]?.loading;
@@ -208,6 +213,7 @@ export function AssetBrowser({
               xs={12} 
               sm={6}
               key={asset.id}
+              role="listitem"
             >
               <Box
                 sx={{
@@ -223,6 +229,10 @@ export function AssetBrowser({
               >
                 {/* Left side - Image Container */}
                 <Box
+                  component="button"
+                  onClick={() => handleToggle(asset.id)}
+                  aria-label={`Select ${asset.name}`}
+                  aria-pressed={isSelected}
                   sx={{
                     width: 100,
                     position: 'relative',
@@ -230,8 +240,9 @@ export function AssetBrowser({
                     display: 'flex',
                     flexDirection: 'column',
                     cursor: 'pointer',
+                    border: 'none',
+                    padding: 0,
                   }}
-                  onClick={() => handleToggle(asset.id)}
                 >
                   {/* Header with checkbox */}
                   <Box sx={{ 
@@ -247,141 +258,99 @@ export function AssetBrowser({
                         e.stopPropagation();
                         handleToggle(asset.id);
                       }}
-                      inputProps={{ 'aria-labelledby': labelId }}
+                      inputProps={{ 
+                        'aria-labelledby': labelId,
+                        'aria-label': `Select ${asset.name}`,
+                      }}
                       sx={{
-                        color: 'rgba(255, 255, 255, 0.7)',
+                        color: 'rgba(255, 255, 255, 0.3)',
                         '&.Mui-checked': {
-                          color: 'white',
+                          color: 'primary.main',
                         },
-                        padding: '2px',
                       }}
                     />
                   </Box>
 
-                  {/* Image Preview */}
+                  {/* Image preview */}
                   <Box
+                    component="img"
+                    src={asset.url}
+                    alt={`Preview of ${asset.name}`}
                     sx={{
                       width: '100%',
                       height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      p: 1,
+                      objectFit: 'cover',
                     }}
-                  >
-                    <Box
-                      component="img"
-                      src={asset.url}
-                      alt={asset.alt || asset.name}
-                      sx={{
-                        maxWidth: '100%',
-                        maxHeight: '100%',
-                        objectFit: 'contain',
-                      }}
-                    />
-                  </Box>
+                  />
                 </Box>
 
-                {/* Right side - Alt Text Section */}
+                {/* Right side - Content */}
                 <Box sx={{ 
                   flex: 1,
+                  p: 2,
                   display: 'flex',
                   flexDirection: 'column',
-                  p: 1.25,
-                  height: '100%',
+                  gap: 0.5,
                 }}>
-                  {/* Top header with Alt Text and Format */}
-                  <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 1,
-                  }}>
+                  {/* Asset name and type */}
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
                     <Typography
-                      variant="h6"
-                      component="div"
-                      sx={{
-                        color: 'white',
-                        fontSize: '0.875rem',
-                        fontWeight: 500,
-                      }}
+                      id={labelId}
+                      variant="subtitle2"
+                      noWrap
+                      sx={{ flex: 1 }}
                     >
-                      Alt Text
+                      {asset.name}
                     </Typography>
-                    <Chip
-                      label="webp"
-                      size="small"
-                      variant="outlined"
-                      sx={{ 
-                        bgcolor: 'transparent',
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                        color: 'rgba(255, 255, 255, 0.7)',
-                        height: '20px',
-                        '& .MuiChip-label': {
-                          px: 1,
-                          fontSize: '0.75rem',
-                        },
-                      }}
-                    />
-                  </Box>
+                    {asset.type && (
+                      <Chip 
+                        label={asset.type}
+                        size="small"
+                        variant="outlined"
+                        sx={{ 
+                          borderColor: 'rgba(255, 255, 255, 0.1)',
+                          color: 'text.secondary',
+                        }}
+                      />
+                    )}
+                  </Stack>
 
-                  {/* Alt Text Input */}
-                  <Box sx={{ 
-                    flex: 1,
-                    minHeight: 0,
-                  }}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={5}
-                      value={editedAltText ?? asset.alt ?? ''}
-                      onChange={(e) => handleAltTextChange(asset.id, e.target.value)}
-                      onBlur={(e) => saveAltText(asset.id, e.target.value)}
-                      disabled={isLoading}
-                      helperText={isLoading ? 'Saving...' : undefined}
-                      sx={{
+                  {/* Alt text field */}
+                  <TextField
+                    id={altTextId}
+                    fullWidth
+                    multiline
+                    rows={4}
+                    size="small"
+                    placeholder="Enter alt text"
+                    value={editedAltText ?? asset.alt ?? ''}
+                    onChange={(e) => handleAltTextChange(asset.id, e.target.value)}
+                    onBlur={(e) => saveAltText(asset.id, e.target.value)}
+                    disabled={isLoading}
+                    aria-label={`Alt text for ${asset.name}`}
+                    InputProps={{
+                      'aria-describedby': `${altTextId}-help`,
+                    }}
+                    sx={{
+                      flex: 1,
+                      '& .MuiOutlinedInput-root': {
+                        bgcolor: 'rgba(0, 0, 0, 0.2)',
                         height: '100%',
-                        '& .MuiOutlinedInput-root': {
-                          bgcolor: '#141414',
-                          color: 'white',
-                          borderRadius: '6px',
-                          fontSize: '0.875rem',
-                          height: '100%',
-                          '& textarea': {
-                            height: '100% !important',
-                            padding: '3px 3px',
-                            scrollbarWidth: 'thin',
-                            '&::-webkit-scrollbar': {
-                              width: '4px',
-                            },
-                            '&::-webkit-scrollbar-thumb': {
-                              backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                              borderRadius: '2px',
-                            },
-                          },
-                          '& .MuiOutlinedInput-notchedOutline': {
-                            padding: 0,
-                          },
-                          '& fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                            borderRadius: '6px',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.3)',
-                          },
-                        },
-                        '& .MuiFormHelperText-root': {
-                          color: 'rgba(255, 255, 255, 0.5)',
+                        '& textarea': {
                           fontSize: '0.75rem',
-                          position: 'absolute',
-                          bottom: -18,
-                        },
-                      }}
-                    />
-                  </Box>
+                          lineHeight: '1.4',
+                          height: '100% !important',
+                        }
+                      }
+                    }}
+                  />
+                  <Typography
+                    id={`${altTextId}-help`}
+                    variant="caption"
+                    color="text.secondary"
+                  >
+                    {isLoading ? 'Saving...' : 'Press Enter or click outside to save'}
+                  </Typography>
                 </Box>
               </Box>
             </Grid>
