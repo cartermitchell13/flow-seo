@@ -57,6 +57,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate image URL format
+    try {
+      new URL(imageUrl);
+    } catch (e) {
+      return NextResponse.json(
+        { error: "Invalid image URL format" },
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
+    }
+
     // Get API key for the provider
     const apiKey = await apiKeysController.getApiKey(
       user.id,
@@ -84,6 +97,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { headers: corsHeaders });
   } catch (error: any) {
     console.error("Error generating alt text:", error);
+    
+    // Provide more specific error messages
+    if (error.message.includes('Failed to process image')) {
+      return NextResponse.json(
+        { error: "Failed to process image. Please ensure the image URL is accessible." },
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
+    }
+
     return NextResponse.json(
       { error: error.message || "Failed to generate alt text" },
       { 

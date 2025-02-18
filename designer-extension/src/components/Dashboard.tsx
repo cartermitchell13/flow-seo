@@ -46,7 +46,19 @@ export function Dashboard({ user, sites, isLoading, isError, error, onFetchSites
   // State for API key configuration
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isHowToUseOpen, setIsHowToUseOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'anthropic'>('anthropic');
+  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'anthropic'>('openai');
+
+  // Load saved provider from localStorage
+  useEffect(() => {
+    const savedProvider = localStorage.getItem('selectedProvider');
+    if (savedProvider === 'openai' || savedProvider === 'anthropic') {
+      setSelectedProvider(savedProvider as 'openai' | 'anthropic');
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('selectedProvider', selectedProvider);
+  }, [selectedProvider]);
 
   // Alt text generation hook
   const { generateAltText, error: generationError } = useAltTextGeneration();

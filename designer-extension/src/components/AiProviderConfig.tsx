@@ -74,6 +74,19 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
     }
   };
 
+  /**
+   * Validates API key format based on provider
+   */
+  const validateApiKey = (key: string, provider: string): boolean => {
+    if (provider === 'openai') {
+      return key.startsWith('sk-') && key.length > 20;
+    }
+    if (provider === 'anthropic') {
+      return key.startsWith('sk-') && key.includes('ant-');
+    }
+    return false;
+  };
+
   // Handle provider selection
   useEffect(() => {
     if (savedProvider) {
@@ -135,75 +148,64 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
     }
   };
 
-  /**
-   * Securely saves the API key to the backend
-   * Uses proper error handling and validation
-   */
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!authState?.sessionToken) {
+  // Handle saving API key
+  const handleSave = async () => {
+    if (!authState?.sessionToken || !sites?.[0]?.id) {
       setError('Not authenticated. Please log in first.');
       return;
     }
 
-    if (!sites?.[0]?.id) {
-      setError('No site ID available. Please ensure you have access to at least one site.');
+    if (!apiKey && !hasKey) {
+      setError('Please enter an API key.');
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-    setSuccess(false);
+    if (apiKey && !validateApiKey(apiKey, provider)) {
+      setError(`Invalid ${provider.toUpperCase()} API key format`);
+      return;
+    }
 
     try {
-      // Send API key to backend endpoint with site ID
-      const response = await fetch('http://localhost:3000/api/api-keys', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authState.sessionToken}`,
-        },
-        body: JSON.stringify({ 
-          provider, 
-          apiKey,
-          siteId: sites[0].id
-        }),
-      });
+      setIsLoading(true);
+      setError(null);
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save API key');
+      if (apiKey) {
+        const response = await fetch('http://localhost:3000/api/api-keys', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authState.sessionToken}`,
+          },
+          body: JSON.stringify({
+            apiKey,
+            provider,
+            siteId: sites[0].id,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Failed to save API key');
+        }
       }
 
-      // Verify the API key was saved by checking it exists
-      const verifyResponse = await fetch(`http://localhost:3000/api/api-keys?provider=${provider}`, {
-        headers: {
-          'Authorization': `Bearer ${authState.sessionToken}`,
-        },
-      });
-
-      if (!verifyResponse.ok) {
-        throw new Error('Failed to verify API key was saved');
-      }
-
-      // Clear form and show success
-      setApiKey('');
-      setSuccess(true);
-      setSuccessMessage('API key saved successfully');
-      setHasKey(true);
+      // Update selected provider in parent component
       onSaveConfig(provider);
       
-      // Close dialog after success
+      // Save provider selection to localStorage
+      localStorage.setItem('selectedProvider', provider);
+
+      setSuccessMessage('API configuration saved successfully');
+      setSuccess(true);
+      
+      // Close dialog after 2.5 seconds
       setTimeout(() => {
         setSuccess(false);
         onClose();
-      }, 1500);
-
+      }, 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      console.error('API Key Save Error:', err);
-      setHasKey(false);
+      console.error('Error saving API key:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save API key. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -230,7 +232,10 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
   return (
     <Box 
       component="form" 
-      onSubmit={handleSubmit}
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleSave();
+      }}
       role="dialog"
       aria-labelledby="ai-provider-config-title"
       aria-describedby="ai-provider-config-description"
