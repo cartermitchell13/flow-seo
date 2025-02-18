@@ -62,8 +62,7 @@ async function getDb() {
           accessToken TEXT
         );
 
-        DROP TABLE IF EXISTS apiKeys;
-        CREATE TABLE apiKeys (
+        CREATE TABLE IF NOT EXISTS apiKeys (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           userId TEXT,
           siteId TEXT,
@@ -73,8 +72,7 @@ async function getDb() {
           UNIQUE(userId, siteId, provider)
         );
 
-        DROP TABLE IF EXISTS selectedProviders;
-        CREATE TABLE selectedProviders (
+        CREATE TABLE IF NOT EXISTS selectedProviders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           userId TEXT,
           siteId TEXT,

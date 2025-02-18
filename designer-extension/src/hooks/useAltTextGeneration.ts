@@ -30,6 +30,17 @@ export function useAltTextGeneration(): UseAltTextGenerationReturn {
     setError(null);
 
     try {
+      // First check if API key exists
+      const apiKeyResponse = await fetch(`http://localhost:3000/api/api-keys?provider=${provider}`, {
+        headers: {
+          'Authorization': `Bearer ${authState.sessionToken}`,
+        },
+      });
+
+      if (!apiKeyResponse.ok) {
+        throw new Error(`Please configure your ${provider.toUpperCase()} API key in settings before generating alt text.`);
+      }
+
       const response = await fetch('http://localhost:3000/api/generate-alt-text', {
         method: 'POST',
         headers: {
@@ -41,7 +52,7 @@ export function useAltTextGeneration(): UseAltTextGenerationReturn {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to generate alt text');
+        throw new Error(data.error || `Failed to generate alt text with ${provider.toUpperCase()}`);
       }
 
       const data = await response.json();

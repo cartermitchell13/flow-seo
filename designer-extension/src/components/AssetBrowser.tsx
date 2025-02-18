@@ -78,6 +78,7 @@ export function AssetBrowser({
    * This allows immediate UI feedback while editing
    */
   const [editedAltTexts, setEditedAltTexts] = useState<LoadingState>({});
+  const [focusedAssetId, setFocusedAssetId] = useState<string | null>(null);
 
   const handleToggle = (assetId: string) => {
     const newSelected = selectedAssets.includes(assetId)
@@ -328,7 +329,11 @@ export function AssetBrowser({
                     placeholder="Enter alt text"
                     value={editedAltText ?? asset.alt ?? ''}
                     onChange={(e) => handleAltTextChange(asset.id, e.target.value)}
-                    onBlur={(e) => saveAltText(asset.id, e.target.value)}
+                    onBlur={(e) => {
+                      saveAltText(asset.id, e.target.value);
+                      setFocusedAssetId(null);
+                    }}
+                    onFocus={() => setFocusedAssetId(asset.id)}
                     disabled={isLoading}
                     aria-label={`Alt text for ${asset.name}`}
                     InputProps={{
@@ -356,6 +361,10 @@ export function AssetBrowser({
                     id={`${altTextId}-help`}
                     variant="caption"
                     color="text.secondary"
+                    sx={{
+                      visibility: isLoading || focusedAssetId === asset.id ? 'visible' : 'hidden',
+                      height: '1.5em', // Keep space reserved to prevent layout shift
+                    }}
                   >
                     {isLoading ? 'Saving...' : 'Click outside to save'}
                   </Typography>

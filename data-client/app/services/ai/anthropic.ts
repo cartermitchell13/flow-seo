@@ -33,6 +33,18 @@ async function imageUrlToBase64(url: string): Promise<ImageData> {
   };
 }
 
+/**
+ * Cleans the AI-generated alt text by removing prefixes and extra whitespace
+ * @param text The raw alt text from the AI
+ * @returns Cleaned alt text
+ */
+function cleanAltText(text: string): string {
+  // Remove "Alt text:" or "Alt Text:" prefix if present
+  const cleanedText = text.replace(/^(?:Alt text:|Alt Text:)\s*/i, '');
+  // Trim whitespace and ensure proper punctuation
+  return cleanedText.trim();
+}
+
 export async function generateAltTextWithAnthropic(
   request: GenerateAltTextRequest
 ): Promise<GenerateAltTextResponse> {
@@ -71,7 +83,7 @@ export async function generateAltTextWithAnthropic(
     const altText = response.content[0]?.text || 'No description generated';
 
     return {
-      altText,
+      altText: cleanAltText(altText),
       provider: 'anthropic'
     };
   } catch (error) {

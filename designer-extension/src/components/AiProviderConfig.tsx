@@ -252,6 +252,17 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
             onChange={(e) => setProvider(e.target.value)}
             aria-label="Select AI Provider"
             label="AI Provider"
+            sx={{
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#247BA0',
+              },
+            }}
           >
             <MenuItem value="openai">OpenAI (GPT-4 Vision)</MenuItem>
             <MenuItem value="anthropic">Anthropic (Claude)</MenuItem>
@@ -361,6 +372,14 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
             variant="outlined"
             disabled={isLoading}
             aria-label="Cancel configuration"
+            sx={{
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+              color: 'rgba(255, 255, 255, 0.7)',
+              '&:hover': {
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                bgcolor: 'rgba(0, 0, 0, 0.1)',
+              },
+            }}
           >
             Cancel
           </Button>
@@ -369,6 +388,16 @@ export function AiProviderConfig({ onClose, onSaveConfig, savedProvider }: AiPro
             variant="contained"
             disabled={isLoading || !apiKey}
             aria-label="Save API key configuration"
+            sx={{
+              bgcolor: '#247BA0',
+              '&:hover': {
+                bgcolor: '#1D6A8C',
+              },
+              '&.Mui-disabled': {
+                bgcolor: 'rgba(36, 123, 160, 0.4)',
+                color: 'rgba(255, 255, 255, 0.5)',
+              },
+            }}
           >
             {isLoading ? (
               <>

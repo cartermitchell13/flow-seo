@@ -16,6 +16,7 @@ import { Key as KeyIcon, AutoAwesome as GenerateIcon } from '@mui/icons-material
 import { LoadingStates } from './LoadingStates.tsx';
 import { AssetBrowser } from './AssetBrowser';
 import { AiProviderConfig } from './AiProviderConfig';
+import { HowToUse } from './HowToUse';
 import { Asset } from '../types/types.ts';
 import { fetchAssets, updateAssetAltText } from '../api/assets';
 import { useAltTextGeneration } from '../hooks/useAltTextGeneration';
@@ -44,6 +45,7 @@ export function Dashboard({ user, sites, isLoading, isError, error, onFetchSites
 
   // State for API key configuration
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [isHowToUseOpen, setIsHowToUseOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<'openai' | 'anthropic'>('anthropic');
 
   // Alt text generation hook
@@ -206,9 +208,13 @@ export function Dashboard({ user, sites, isLoading, isError, error, onFetchSites
             onClick={handleGenerateAltText}
             sx={{
               height: '32px',
-              bgcolor: '#0084FF',
+              bgcolor: '#247BA0',
               '&:hover': {
-                bgcolor: '#0073E6',
+                bgcolor: '#1D6A8C',
+              },
+              '&.Mui-disabled': {
+                bgcolor: 'rgba(36, 123, 160, 0.4)',
+                color: 'rgba(255, 255, 255, 0.5)',
               },
             }}
           >
@@ -241,6 +247,10 @@ export function Dashboard({ user, sites, isLoading, isError, error, onFetchSites
           <Link 
             href="#" 
             underline="hover"
+            onClick={(e) => {
+              e.preventDefault();
+              setIsHowToUseOpen(true);
+            }}
             sx={{
               color: 'rgba(255, 255, 255, 0.7)',
               fontSize: '0.875rem',
@@ -312,6 +322,12 @@ export function Dashboard({ user, sites, isLoading, isError, error, onFetchSites
           />
         </DialogContent>
       </Dialog>
+
+      {/* How to use Dialog */}
+      <HowToUse 
+        open={isHowToUseOpen}
+        onClose={() => setIsHowToUseOpen(false)}
+      />
 
       {/* Error Snackbar */}
       {generationError && (

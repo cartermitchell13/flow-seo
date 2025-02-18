@@ -1,6 +1,18 @@
 import OpenAI from 'openai';
 import { GenerateAltTextRequest, GenerateAltTextResponse } from './types';
 
+/**
+ * Cleans the AI-generated alt text by removing prefixes and extra whitespace
+ * @param text The raw alt text from the AI
+ * @returns Cleaned alt text
+ */
+function cleanAltText(text: string): string {
+  // Remove "Alt text:" or "Alt Text:" prefix if present
+  const cleanedText = text.replace(/^(?:Alt text:|Alt Text:)\s*/i, '');
+  // Trim whitespace and ensure proper punctuation
+  return cleanedText.trim();
+}
+
 export async function generateAltTextWithOpenAI(
   request: GenerateAltTextRequest
 ): Promise<GenerateAltTextResponse> {
@@ -32,7 +44,7 @@ export async function generateAltTextWithOpenAI(
     const altText = response.choices[0]?.message?.content || 'No description generated';
 
     return {
-      altText,
+      altText: cleanAltText(altText),
       provider: 'openai'
     };
   } catch (error) {

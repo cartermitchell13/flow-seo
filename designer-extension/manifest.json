@@ -1,0 +1,32 @@
+{
+  "name": "Flow SEO",
+  "version": "1.0.0",
+  "description": "AI-powered alt text generator for Webflow assets. Automatically generate SEO-friendly alt text using OpenAI or Anthropic.",
+  "author": {
+    "name": "Carter Mitchell",
+    "email": "cartermitchell13@gmail.com"
+  },
+  "icon": "public/favicon-32x32.png",
+  "homepage": "https://your-website.com",
+  "categories": ["SEO", "Accessibility", "Content Management"],
+  "capabilities": {
+    "storage": {
+      "assets": {
+        "read": true,
+        "write": true
+      }
+    }
+  },
+  "oauth": {
+    "scopes": [
+      "authorized_user:read",
+      "sites:read",
+      "sites:write",
+      "custom_code:read",
+      "custom_code:write"
+    ]
+  },
+  "pricing": {
+    "type": "free"
+  }
+}
