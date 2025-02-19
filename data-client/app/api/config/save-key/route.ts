@@ -5,7 +5,7 @@ import { apiKeysController } from '../../../lib/controllers/api-keys';
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'http://localhost:1337',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-webflow-user-id',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-webflow-user-id, x-webflow-site-id',
   'Access-Control-Allow-Credentials': 'true',
 };
 
@@ -40,11 +40,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Get user ID from request header
+    // 2. Get user ID and site ID from request headers
     const userId = request.headers.get('x-webflow-user-id');
-    if (!userId) {
+    const siteId = request.headers.get('x-webflow-site-id');
+    
+    if (!userId || !siteId) {
       return new NextResponse(
-        JSON.stringify({ error: 'User ID is required' }), 
+        JSON.stringify({ error: 'User ID and Site ID are required' }), 
         { 
           status: 401,
           headers: {
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Save API key using controller
-    await apiKeysController.saveApiKey(userId, provider, apiKey);
+    await apiKeysController.saveApiKey(userId, siteId, provider, apiKey);
 
     return new NextResponse(
       JSON.stringify({ success: true }), 
@@ -71,10 +73,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error saving API key:', error);
     return new NextResponse(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Internal server error',
-        details: error instanceof Error ? error.stack : undefined
-      }), 
+      JSON.stringify({ error: 'Failed to save API key' }), 
       { 
         status: 500,
         headers: {

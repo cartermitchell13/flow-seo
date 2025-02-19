@@ -52,6 +52,7 @@ async function initializeDatabase() {
         user_id TEXT NOT NULL,
         site_id TEXT NOT NULL,
         provider TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, site_id)
       );
     `;
@@ -211,37 +212,59 @@ export async function getSelectedProvider(
  */
 async function getAuth(): Promise<AuthResponse | null> {
   try {
-    const result = await sql<SiteAuthorization[]>`
-      SELECT * FROM site_authorizations LIMIT 1
+    const siteAuths = await sql<SiteAuthorization[]>`
+      SELECT site_id, access_token FROM site_authorizations
     `;
     
-    if (result && result.length > 0) {
-      return {
-        access_token: result[0].access_token,
-        site_id: result[0].site_id
-      };
+    const userAuths = await sql<UserAuthorization[]>`
+      SELECT user_id, access_token FROM user_authorizations
+    `;
+
+    if (!siteAuths.length && !userAuths.length) {
+      return null;
     }
-    return null;
+
+    return {
+      sites: siteAuths,
+      users: userAuths,
+    };
   } catch (error) {
-    console.error('Failed to get auth:', error);
+    console.error('Error getting auth data:', error);
     return null;
   }
+}
+
+/**
+ * Clears all tables in the database (Development only)
+ * @returns Promise<void>
+ */
+async function clearDatabase(): Promise<void> {
+  if (process.env.NODE_ENV !== 'development') {
+    throw new Error('clearDatabase can only be called in development environment');
+  }
+  
+  await sql`
+    TRUNCATE TABLE site_authorizations CASCADE;
+    TRUNCATE TABLE user_authorizations CASCADE;
+    TRUNCATE TABLE api_keys CASCADE;
+    TRUNCATE TABLE selected_providers CASCADE;
+  `;
 }
 
 // Initialize database when module is imported
 initializeDatabase().catch(console.error);
 
 // Export all database functions
-const database = {
-  getAccessTokenFromSiteId,
-  getAccessTokenFromUserId,
+export default {
+  initializeDatabase,
   insertSiteAuthorization,
   insertUserAuthorization,
+  getAccessTokenFromSiteId,
+  getAccessTokenFromUserId,
   saveApiKey,
   deleteApiKey,
   getApiKey,
   getSelectedProvider,
-  getAuth
+  getAuth,
+  clearDatabase,
 };
-
-export default database;
