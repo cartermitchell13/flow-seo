@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { AssetService } from "../../../services/assets";
+import { updateAssetAltText } from "../../../services/webflow/assets";
 import { db } from "../../../db";
+import { getSession } from "../../../lib/auth/session";
 
 /**
  * GET /api/assets/[assetId]
@@ -24,17 +25,15 @@ export async function GET(
     }
 
     // Get the access token from the database
-    const auth = await db.getAuth();
-    if (!auth?.access_token) {
+    const accessToken = await db.getAccessTokenFromSiteId(siteId);
+    if (!accessToken) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const assetService = new AssetService(auth.access_token);
-    const asset = await assetService.getAsset(siteId, params.assetId);
-
+    const asset = await updateAssetAltText(siteId, params.assetId, "", accessToken);
     return NextResponse.json(asset);
   } catch (error) {
     console.error("Error getting asset:", error);
@@ -56,38 +55,35 @@ export async function PATCH(
   { params }: { params: { assetId: string } }
 ) {
   try {
-    const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get("siteId");
-    const body = await request.json();
-
-    if (!siteId) {
-      return NextResponse.json(
-        { error: "Site ID is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!body.alt) {
-      return NextResponse.json(
-        { error: "Alt text is required" },
-        { status: 400 }
-      );
-    }
-
-    // Get the access token from the database
-    const auth = await db.getAuth();
-    if (!auth?.access_token) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const assetService = new AssetService(auth.access_token);
-    const asset = await assetService.updateAssetAltText(
-      siteId,
+    const { altText } = await request.json();
+    if (!altText) {
+      return NextResponse.json(
+        { error: "Alt text is required" },
+        { status: 400 }
+      );
+    }
+
+    const accessToken = await db.getAccessTokenFromSiteId(session.siteId);
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Not authenticated" },
+        { status: 401 }
+      );
+    }
+
+    const asset = await updateAssetAltText(
+      session.siteId,
       params.assetId,
-      body.alt
+      altText,
+      accessToken
     );
 
     return NextResponse.json(asset);

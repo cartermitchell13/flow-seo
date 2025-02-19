@@ -13,7 +13,7 @@ export async function PATCH(req: NextRequest) {
   
   try {
     // Get the authenticated session
-    const session = await getSession(req);
+    const session = await getSession();
     console.log('Session check:', { hasSession: !!session });
     
     if (!session) {
@@ -52,11 +52,19 @@ export async function PATCH(req: NextRequest) {
 
     console.log('Update successful:', result);
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in update-alt-text route:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to update alt text';
     return NextResponse.json(
-      { error: error.message || 'Failed to update alt text' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
+}
+
+/**
+ * Handle OPTIONS request for CORS
+ */
+export async function OPTIONS() {
+  return new NextResponse(null);
 }

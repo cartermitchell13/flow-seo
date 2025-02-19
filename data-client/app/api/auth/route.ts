@@ -74,7 +74,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Handle OPTIONS request for CORS
-export async function OPTIONS(request: NextRequest) {
+/**
+ * Handle OPTIONS request for CORS
+ */
+export async function OPTIONS() {
   return new NextResponse(null, { headers: corsHeaders });
 }

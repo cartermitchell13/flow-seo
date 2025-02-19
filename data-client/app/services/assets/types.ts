@@ -30,14 +30,13 @@ export interface WebflowAsset {
 export interface ListAssetsResponse {
   assets: WebflowAsset[];
   pagination: {
-    limit: number;
-    offset: number;
-    total: number;
+    hasNextPage: boolean;
+    endCursor?: string;
   };
 }
 
 export interface ListAssetsOptions {
-  limit?: number;
-  offset?: number;
   siteId: string;
+  limit?: number;
+  cursor?: string;
 }

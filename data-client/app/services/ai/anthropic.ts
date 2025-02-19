@@ -23,9 +23,6 @@ async function imageUrlToBase64(url: string): Promise<ImageData> {
 
   const arrayBuffer = await response.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString('base64');
-
-  // Add proper base64 prefix
-  const prefix = `data:${contentType};base64,`;
   
   return {
     base64,
@@ -56,6 +53,12 @@ export async function generateAltTextWithAnthropic(
     // Convert image URL to base64 and get mime type
     const { base64, mimeType } = await imageUrlToBase64(request.imageUrl);
     
+    // Validate mime type is supported by Anthropic
+    const supportedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
+    if (!supportedMimeTypes.includes(mimeType as any)) {
+      throw new Error(`Unsupported image type: ${mimeType}. Must be one of: ${supportedMimeTypes.join(', ')}`);
+    }
+    
     const response = await anthropic.messages.create({
       model: "claude-3-opus-20240229",
       max_tokens: 100,
@@ -71,7 +74,7 @@ export async function generateAltTextWithAnthropic(
               type: "image",
               source: {
                 type: "base64",
-                media_type: mimeType,
+                media_type: mimeType as typeof supportedMimeTypes[number],
                 data: base64
               }
             }
@@ -80,10 +83,14 @@ export async function generateAltTextWithAnthropic(
       ]
     });
 
-    const altText = response.content[0]?.text || 'No description generated';
+    // Extract text from the response content
+    const content = response.content[0];
+    if (!content || content.type !== 'text') {
+      throw new Error('Unexpected response format from Anthropic');
+    }
 
     return {
-      altText: cleanAltText(altText),
+      altText: cleanAltText(content.text),
       provider: 'anthropic'
     };
   } catch (error) {

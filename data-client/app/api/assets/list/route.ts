@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AssetService } from "../../../services/assets";
 import { db } from "../../../db";
+import { corsHeaders } from "../../../lib/utils/cors";
 
 /**
  * GET /api/assets/list
@@ -11,15 +12,18 @@ import { db } from "../../../db";
  */
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const siteId = searchParams.get("siteId");
-    const cursor = searchParams.get("cursor");
-    const limit = searchParams.get("limit");
+    const url = new URL(request.url);
+    const siteId = url.searchParams.get("siteId");
+    const cursor = url.searchParams.get("cursor");
+    const limit = url.searchParams.get("limit");
 
     if (!siteId) {
       return NextResponse.json(
         { error: "Site ID is required" },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -28,7 +32,10 @@ export async function GET(request: Request) {
     if (!auth?.access_token) {
       return NextResponse.json(
         { error: "Not authenticated" },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: corsHeaders
+        }
       );
     }
 
@@ -39,12 +46,22 @@ export async function GET(request: Request) {
       limit: limit ? parseInt(limit) : undefined,
     });
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { headers: corsHeaders });
   } catch (error) {
     console.error("Error listing assets:", error);
     return NextResponse.json(
       { error: "Failed to list assets" },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
+}
+
+/**
+ * Handle OPTIONS request for CORS
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, { headers: corsHeaders });
 }

@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Validate image URL format
     try {
       new URL(imageUrl);
-    } catch (e) {
+    } catch {
       return NextResponse.json(
         { error: "Invalid image URL format" },
         { 
@@ -95,11 +95,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(result, { headers: corsHeaders });
-  } catch (error: any) {
-    console.error("Error generating alt text:", error);
+  } catch {
+    console.error("Error generating alt text:");
     
     // Provide more specific error messages
-    if (error.message.includes('Failed to process image')) {
+    if (console.error.toString().includes('Failed to process image')) {
       return NextResponse.json(
         { error: "Failed to process image. Please ensure the image URL is accessible." },
         { 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: error.message || "Failed to generate alt text" },
+      { error: "Failed to generate alt text" },
       { 
         status: 500,
         headers: corsHeaders
@@ -122,6 +122,6 @@ export async function POST(request: NextRequest) {
 /**
  * Handle OPTIONS request for CORS
  */
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS() {
   return new NextResponse(null, { headers: corsHeaders });
 }

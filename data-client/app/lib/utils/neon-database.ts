@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { AuthResponse, SiteAuthorization, UserAuthorization, ApiKeyEntry, ProviderSelection } from './database-types';
 
 /**
  * Database Utility for Neon PostgreSQL
@@ -204,6 +205,29 @@ export async function getSelectedProvider(
   return result.length > 0 ? result[0].provider : null;
 }
 
+/**
+ * Gets the current authentication data
+ * @returns Promise<AuthResponse | null>
+ */
+async function getAuth(): Promise<AuthResponse | null> {
+  try {
+    const result = await sql<SiteAuthorization[]>`
+      SELECT * FROM site_authorizations LIMIT 1
+    `;
+    
+    if (result && result.length > 0) {
+      return {
+        access_token: result[0].access_token,
+        site_id: result[0].site_id
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to get auth:', error);
+    return null;
+  }
+}
+
 // Initialize database when module is imported
 initializeDatabase().catch(console.error);
 
@@ -217,6 +241,7 @@ const database = {
   deleteApiKey,
   getApiKey,
   getSelectedProvider,
+  getAuth
 };
 
 export default database;

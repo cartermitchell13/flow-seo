@@ -7,7 +7,7 @@ import type { NextRequest } from 'next/server';
  * Handles CORS headers for API requests from our frontend
  * Allows requests from our designer extension running on localhost:1337
  */
-export function middleware(request: NextRequest) {
+export function middleware(_request: NextRequest) {
   const response = NextResponse.next();
 
   // Add CORS headers

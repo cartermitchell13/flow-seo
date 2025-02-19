@@ -1,6 +1,6 @@
 import { generateAltTextWithOpenAI } from './openai';
 import { generateAltTextWithAnthropic } from './anthropic';
-import { GenerateAltTextRequest, GenerateAltTextResponse, AiProvider } from './types';
+import { GenerateAltTextRequest, GenerateAltTextResponse } from './types';
 
 export async function generateAltText(
   request: GenerateAltTextRequest

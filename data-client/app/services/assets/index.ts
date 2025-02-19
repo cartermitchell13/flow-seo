@@ -1,6 +1,5 @@
 import { WebflowClient } from "webflow-api";
 import { ListAssetsOptions, WebflowAsset } from "./types";
-import { db } from "../../db";
 
 /**
  * Service for handling Webflow asset operations
