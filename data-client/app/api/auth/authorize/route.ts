@@ -1,3 +1,6 @@
+// Force dynamic rendering for this route since it handles authentication
+export const dynamic = 'force-dynamic';
+
 import { WebflowClient } from "webflow-api";
 import { NextResponse } from "next/server";
 import { OauthScope } from "webflow-api/api/types/OAuthScope";

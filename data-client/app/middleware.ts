@@ -7,7 +7,8 @@ import type { NextRequest } from 'next/server';
  * Handles CORS headers for API requests from our frontend
  * Allows requests from our designer extension running on localhost:1337
  */
-export function middleware(_request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function middleware(_: NextRequest) {
   const response = NextResponse.next();
 
   // Add CORS headers

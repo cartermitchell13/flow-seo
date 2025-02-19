@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AssetService } from "../../../services/assets";
+import { AssetService } from "../../../services/webflow/assets";
 import { db } from "../../../db";
 import { corsHeaders } from "../../../lib/utils/cors";
 
@@ -29,7 +29,8 @@ export async function GET(request: Request) {
 
     // Get the access token from the database
     const auth = await db.getAuth();
-    if (!auth?.access_token) {
+    const siteAuth = auth?.sites.find(s => s.site_id === siteId);
+    if (!siteAuth?.access_token) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { 
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const assetService = new AssetService(auth.access_token);
+    const assetService = new AssetService(siteAuth.access_token);
     const response = await assetService.listAssets({
       siteId,
       cursor: cursor || undefined,

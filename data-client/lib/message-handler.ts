@@ -3,9 +3,20 @@
  */
 type MessageType = 'saveApiKey' | 'getSelectedProvider';
 
+interface SaveApiKeyData {
+  provider: string;
+  apiKey: string;
+}
+
+interface GetSelectedProviderData {
+  siteId?: string;
+}
+
+type MessageData = SaveApiKeyData | GetSelectedProviderData;
+
 interface Message {
   type: MessageType;
-  data: any;
+  data: MessageData;
 }
 
 /**
@@ -17,7 +28,8 @@ export async function handleDesignerMessage(message: Message, userId: string) {
   try {
     switch (message.type) {
       case 'saveApiKey': {
-        const { provider, apiKey } = message.data;
+        const data = message.data as SaveApiKeyData;
+        const { provider, apiKey } = data;
         if (!provider || !apiKey) {
           return { error: 'Missing required fields' };
         }

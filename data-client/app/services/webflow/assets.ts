@@ -5,6 +5,14 @@
  * Documentation: https://developers.webflow.com/reference/assets-resource
  */
 
+interface WebflowAsset {
+  id: string;
+  siteId: string;
+  name: string;
+  altText?: string;
+  [key: string]: unknown;
+}
+
 /**
  * Updates the alt text for a Webflow asset
  * 
@@ -19,7 +27,7 @@ export async function updateAssetAltText(
   assetId: string,
   altText: string,
   accessToken: string
-): Promise<any> {
+): Promise<WebflowAsset> {
   console.log('Updating asset alt text:', { siteId, assetId, altText });
 
   // First, get the current asset data
@@ -65,4 +73,48 @@ export async function updateAssetAltText(
   const result = await updateResponse.json();
   console.log('Update result:', result);
   return result;
+}
+
+export class AssetService {
+  private accessToken: string;
+
+  constructor(accessToken: string) {
+    this.accessToken = accessToken;
+  }
+
+  /**
+   * Lists assets from a Webflow site
+   * @param options - Options for listing assets
+   * @returns Promise resolving to the list of assets
+   */
+  async listAssets(options: {
+    siteId: string;
+    cursor?: string;
+    limit?: number;
+  }): Promise<{ assets: WebflowAsset[]; cursor?: string }> {
+    const { siteId, cursor, limit } = options;
+    const queryParams = new URLSearchParams();
+    if (cursor) queryParams.set('cursor', cursor);
+    if (limit) queryParams.set('limit', limit.toString());
+
+    const response = await fetch(
+      `https://api.webflow.com/v2/sites/${siteId}/assets?${queryParams}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'accept': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to list assets: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      assets: data.assets,
+      cursor: data.pagination?.next_cursor,
+    };
+  }
 }

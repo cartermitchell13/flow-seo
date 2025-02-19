@@ -28,7 +28,6 @@ export interface ProviderSelection {
 }
 
 export interface AuthResponse {
-    access_token: string;
-    site_id?: string;
-    user_id?: string;
+    sites: SiteAuthorization[];
+    users: UserAuthorization[];
 }

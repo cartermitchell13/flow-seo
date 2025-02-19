@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless';
-import { AuthResponse, SiteAuthorization, UserAuthorization, ApiKeyEntry, ProviderSelection } from './database-types';
+import { AuthResponse, SiteAuthorization, UserAuthorization } from './database-types';
 
 /**
  * Database Utility for Neon PostgreSQL
@@ -212,21 +212,32 @@ export async function getSelectedProvider(
  */
 async function getAuth(): Promise<AuthResponse | null> {
   try {
-    const siteAuths = await sql<SiteAuthorization[]>`
+    const sitesResult = await sql`
       SELECT site_id, access_token FROM site_authorizations
     `;
     
-    const userAuths = await sql<UserAuthorization[]>`
+    const usersResult = await sql`
       SELECT user_id, access_token FROM user_authorizations
     `;
 
-    if (!siteAuths.length && !userAuths.length) {
+    if (sitesResult.length === 0 && usersResult.length === 0) {
       return null;
     }
 
+    // Transform the results to match our types
+    const sites: SiteAuthorization[] = sitesResult.map(row => ({
+      site_id: row.site_id,
+      access_token: row.access_token
+    }));
+
+    const users: UserAuthorization[] = usersResult.map(row => ({
+      user_id: row.user_id,
+      access_token: row.access_token
+    }));
+
     return {
-      sites: siteAuths,
-      users: userAuths,
+      sites,
+      users,
     };
   } catch (error) {
     console.error('Error getting auth data:', error);
@@ -254,8 +265,8 @@ async function clearDatabase(): Promise<void> {
 // Initialize database when module is imported
 initializeDatabase().catch(console.error);
 
-// Export all database functions
-export default {
+// Create database interface object
+const database = {
   initializeDatabase,
   insertSiteAuthorization,
   insertUserAuthorization,
@@ -268,3 +279,5 @@ export default {
   getAuth,
   clearDatabase,
 };
+
+export default database;

@@ -55,7 +55,7 @@ export async function generateAltTextWithAnthropic(
     
     // Validate mime type is supported by Anthropic
     const supportedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const;
-    if (!supportedMimeTypes.includes(mimeType as any)) {
+    if (!supportedMimeTypes.includes(mimeType as typeof supportedMimeTypes[number])) {
       throw new Error(`Unsupported image type: ${mimeType}. Must be one of: ${supportedMimeTypes.join(', ')}`);
     }
     

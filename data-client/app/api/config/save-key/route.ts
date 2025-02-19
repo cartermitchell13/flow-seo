@@ -1,3 +1,6 @@
+// Force dynamic rendering for this route since it uses request headers
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { apiKeysController } from '../../../lib/controllers/api-keys';
 

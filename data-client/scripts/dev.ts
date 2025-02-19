@@ -1,32 +1,38 @@
-import { createServer, IncomingMessage, ServerResponse } from "http";
-import next from "next";
-import { setupDevEnvironment } from "../app/lib/utils/ngrokManager";
+import { spawn } from "child_process";
+import chalk from "chalk";
 
-async function dev() {
-  const app = next({ dev: true });
-  const handle = app.getRequestHandler();
+/**
+ * Development Environment Setup
+ * ---------------------------
+ * This script starts the Next.js development server.
+ */
 
-  await app.prepare();
+async function main() {
+  try {
+    // Start Next.js dev server
+    const nextProcess = spawn("next", ["dev"], {
+      stdio: "inherit",
+      shell: true,
+    });
 
-  const server = createServer(
-    async (req: IncomingMessage, res: ServerResponse) => {
-      try {
-        await handle(req, res);
-      } catch (err) {
-        console.error("Error handling request:", err);
-        res.statusCode = 500;
-        res.end("Internal Server Error");
+    // Handle process exit
+    nextProcess.on("exit", (code) => {
+      if (code !== 0) {
+        console.error(chalk.red(`Next.js process exited with code ${code}`));
+        process.exit(code || 1);
       }
-    }
-  );
+    });
 
-  server.listen(3000, async () => {
-    console.log("> Ready on http://localhost:3000");
-    await setupDevEnvironment();
-  });
+    // Handle process errors
+    nextProcess.on("error", (err) => {
+      console.error(chalk.red("Failed to start Next.js process:"), err);
+      process.exit(1);
+    });
+
+  } catch (error) {
+    console.error(chalk.red("Error starting development environment:"), error);
+    process.exit(1);
+  }
 }
 
-dev().catch((err) => {
-  console.error("Error starting server:", err);
-  process.exit(1);
-});
+main();

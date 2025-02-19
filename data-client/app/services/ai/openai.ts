@@ -84,26 +84,38 @@ export async function generateAltTextWithOpenAI(
         altText: cleanAltText(altText),
         provider: 'openai'
       };
-    } catch (error: any) {
-      // Handle specific OpenAI API errors
-      if (error.status === 401) {
-        throw new Error('Invalid or expired OpenAI API key');
-      } else if (error.status === 429) {
-        throw new Error('OpenAI API rate limit exceeded');
-      } else if (error.status === 500) {
-        throw new Error('OpenAI service error. Please try again later');
+    } catch (error) {
+      // Type guard for OpenAI API errors
+      if (error && typeof error === 'object' && 'status' in error) {
+        // Handle specific OpenAI API errors
+        if (error.status === 401) {
+          throw new Error('Invalid or expired OpenAI API key');
+        } else if (error.status === 429) {
+          throw new Error('OpenAI API rate limit exceeded');
+        } else if (error.status === 500) {
+          throw new Error('OpenAI service error. Please try again later');
+        }
+        
+        console.error('OpenAI API Error:', {
+          status: error.status,
+          message: (error as { message?: string }).message,
+          type: (error as { type?: string }).type
+        });
       }
       
-      console.error('OpenAI API Error:', {
-        status: error.status,
-        message: error.message,
-        type: error.type
-      });
-      
-      throw new Error(`OpenAI Error: ${error.message}`);
+      console.error('OpenAI API Error:', error);
+      if (error instanceof Error) {
+        throw new Error(`OpenAI Error: ${error.message}`);
+      } else {
+        throw new Error('Unknown OpenAI Error');
+      }
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('OpenAI Generation Error:', error);
-    throw error; // Preserve the specific error message
+    if (error instanceof Error) {
+      throw error; // Preserve the specific error message
+    } else {
+      throw new Error('Unknown OpenAI Generation Error');
+    }
   }
 }

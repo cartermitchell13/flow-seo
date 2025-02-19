@@ -63,18 +63,15 @@ export async function exchangeCodeForToken(code: string) {
  * Store access token in database
  */
 export async function storeAccessToken(userId: string, token: string) {
-  await db.put(`token:${userId}`, {
-    access_token: token,
-    created_at: Date.now(),
-  });
+  await db.insertUserAuthorization(userId, token);
 }
 
 /**
  * Get access token from database
  */
 export async function getStoredAccessToken(userId: string) {
-  const data = await db.get<{ access_token: string }>(`token:${userId}`);
-  return data?.access_token;
+  const token = await db.getAccessTokenFromUserId(userId);
+  return token;
 }
 
 /**
