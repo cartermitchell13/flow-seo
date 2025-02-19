@@ -13,7 +13,7 @@ import { AuthResponse, SiteAuthorization, UserAuthorization } from './database-t
  */
 
 // Get the database URL from environment variables
-const DATABASE_URL = process.env.POSTGRES_URL!;
+const DATABASE_URL = process.env.POSTGRES_URL_NON_POOLING!;
 
 // Create the neon SQL instance
 const sql = neon(DATABASE_URL);

@@ -4,17 +4,34 @@ import type { NextRequest } from 'next/server';
 /**
  * CORS Middleware
  * --------------
- * Handles CORS headers for API requests from our frontend
- * Allows requests from our designer extension running on localhost:1337
+ * Handles CORS headers for API requests
+ * Supports both development (localhost:1337) and production (webflow.com) environments
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function middleware(_: NextRequest) {
+export function middleware(request: NextRequest) {
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' 
+          ? 'http://localhost:1337' 
+          : 'https://webflow.com',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-webflow-site-id, x-webflow-user-id',
+        'Access-Control-Allow-Credentials': 'true',
+      },
+    });
+  }
+
   const response = NextResponse.next();
 
   // Add CORS headers
-  response.headers.set('Access-Control-Allow-Origin', 'http://localhost:1337');
+  response.headers.set(
+    'Access-Control-Allow-Origin',
+    process.env.NODE_ENV === 'development' ? 'http://localhost:1337' : 'https://webflow.com'
+  );
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-webflow-site-id, x-webflow-user-id');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
 
   return response;
