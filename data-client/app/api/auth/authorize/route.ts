@@ -1,14 +1,13 @@
 // Force dynamic rendering for this route since it handles authentication
 export const dynamic = 'force-dynamic';
 
-import { WebflowClient } from "webflow-api";
 import { NextResponse } from "next/server";
-import { OauthScope } from "webflow-api/api/types/OAuthScope";
 
 /**
  * Authorize API Route Handler
  * --------------------------
  * This route generates and redirects to Webflow's authorization URL.
+ * Following Webflow's OAuth 2.0 specification for authorization code grant flow.
  */
 
 const scopes = [
@@ -22,17 +21,22 @@ const scopes = [
   "pages:read",
   "pages:write",
   "cms:read"
-];
+].join(' ');
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const isDesigner = searchParams.get("state") === "webflow_designer";
+  const state = searchParams.get("state") || '';
 
-  const authorizeUrl = WebflowClient.authorizeURL({
-    scope: scopes as OauthScope[],
-    clientId: process.env.WEBFLOW_CLIENT_ID!,
-    state: isDesigner ? "webflow_designer" : undefined,
-  });
+  // Construct the authorization URL according to Webflow's spec
+  const authorizeUrl = new URL('https://webflow.com/oauth/authorize');
+  authorizeUrl.searchParams.append('client_id', process.env.WEBFLOW_CLIENT_ID!);
+  authorizeUrl.searchParams.append('response_type', 'code');
+  authorizeUrl.searchParams.append('scope', scopes);
+  
+  // Add state if provided (used for designer extension flow)
+  if (state) {
+    authorizeUrl.searchParams.append('state', state);
+  }
 
-  return NextResponse.redirect(authorizeUrl);
+  return NextResponse.redirect(authorizeUrl.toString());
 }

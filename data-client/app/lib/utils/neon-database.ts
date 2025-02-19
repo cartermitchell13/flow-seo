@@ -22,8 +22,9 @@ const sql = neon(DATABASE_URL);
  * Initializes the database by creating necessary tables if they don't exist.
  * @returns Promise<void>
  */
-async function initializeDatabase() {
+export async function initializeDatabase() {
   try {
+    console.log("Creating database tables if they don't exist");
     // Create tables for site and user authorizations
     await sql`
       CREATE TABLE IF NOT EXISTS site_authorizations (
@@ -56,8 +57,9 @@ async function initializeDatabase() {
         UNIQUE(user_id, site_id)
       );
     `;
+    console.log("Database tables created successfully");
   } catch (error) {
-    console.error('Error initializing database:', error);
+    console.error("Error initializing database:", error);
     throw error;
   }
 }

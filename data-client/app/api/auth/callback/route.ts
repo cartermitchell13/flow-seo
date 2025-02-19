@@ -1,7 +1,6 @@
 // Force dynamic rendering for this route since it handles authentication
 export const dynamic = 'force-dynamic';
 
-import { WebflowClient } from "webflow-api";
 import { NextRequest, NextResponse } from "next/server";
 import db from "../../../lib/utils/neon-database";
 
@@ -9,30 +8,20 @@ import db from "../../../lib/utils/neon-database";
  * Callback API Route Handler
  * -------------------------
  * This route processes the OAuth callback from Webflow after a user authorizes the application.
+ * Implements Webflow's OAuth 2.0 specification for authorization code grant flow.
  *
  * Flow:
  * 1. Receives authorization code from Webflow
- * 2. Exchanges code for access token
- * 3. Retrieves user's Webflow sites
+ * 2. Exchanges code for access token using OAuth token endpoint
+ * 3. Retrieves user's Webflow sites using the access token
  * 4. Stores site authorization details
  * 5. Handles response based on access method (popup vs direct)
- *
- * @param {NextRequest} request - The incoming request object containing:
- *   - searchParams: URL parameters including the authorization 'code'
- *   - headers: Request headers to determine if accessed via popup
- *
- * @returns {Promise<NextResponse>}
- *   - For popup windows: Returns HTML to close window and notify parent
- *   - For direct navigation: Redirects to the first authorized Webflow site
- *   - On error: Returns 400 status if no code provided
- *
- * @requires {WEBFLOW_CLIENT_ID} - Environment variable for OAuth client ID
- * @requires {WEBFLOW_CLIENT_SECRET} - Environment variable for OAuth client secret
  */
 export async function GET(request: NextRequest) {
   // Get the authorization code from the request
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
+  const state = searchParams.get("state");
 
   // If no code, return a 400 error
   if (!code) {
@@ -40,34 +29,93 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get Access Token
-    const accessToken = await WebflowClient.getAccessToken({
-      clientId: process.env.WEBFLOW_CLIENT_ID!,
-      clientSecret: process.env.WEBFLOW_CLIENT_SECRET!,
-      code: code,
+    console.log("[Auth Callback] Starting OAuth token exchange");
+    console.log("[Auth Callback] Code received:", code);
+    
+    // Initialize database tables first
+    console.log("[Auth Callback] Ensuring database tables exist");
+    await db.initializeDatabase();
+    console.log("[Auth Callback] Database initialized");
+    
+    // Exchange the authorization code for an access token
+    console.log("[Auth Callback] Exchanging code for token");
+    const tokenResponse = await fetch('https://api.webflow.com/oauth/access_token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: process.env.WEBFLOW_CLIENT_ID!,
+        client_secret: process.env.WEBFLOW_CLIENT_SECRET!,
+        code: code,
+        grant_type: 'authorization_code',
+      }),
     });
 
-    // Instantiate the Webflow Client
-    const webflow = new WebflowClient({ accessToken });
-
-    // Get Site ID to pair with the access token
-    const sites = await webflow.sites.list();
-    const authInfo = await webflow.token.introspect();
-
-    // Store site authorizations in parallel
-    const siteList = sites?.sites ?? [];
-    if (siteList.length > 0) {
-      await Promise.all(
-        siteList.map((site) => db.insertSiteAuthorization(site.id, accessToken))
-      );
+    console.log("[Auth Callback] Token response status:", tokenResponse.status);
+    const tokenData = await tokenResponse.json();
+    
+    if (!tokenResponse.ok) {
+      console.error("[Auth Callback] Token exchange failed:", JSON.stringify(tokenData));
+      return NextResponse.json({ 
+        error: "Token exchange failed", 
+        details: tokenData 
+      }, { 
+        status: tokenResponse.status 
+      });
     }
 
-    // Check if the authorization request came from our Webflow designer extension
-    const isAppPopup = searchParams.get("state") === "webflow_designer";
-    console.log("isAppPopup", isAppPopup);
+    console.log("[Auth Callback] Successfully obtained access token");
+    const accessToken = tokenData.access_token;
+    
+    if (!accessToken) {
+      console.error("[Auth Callback] No access token in response:", tokenData);
+      return NextResponse.json({ 
+        error: "No access token in response",
+        details: tokenData
+      }, { 
+        status: 400 
+      });
+    }
 
-    // If the request is from a popup window, return HTML to close the window
-    if (isAppPopup) {
+    // Fetch sites and user data using the access token
+    console.log("[Auth Callback] Fetching Webflow data");
+    const [sitesResponse, userResponse] = await Promise.all([
+      fetch('https://api.webflow.com/sites', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'accept-version': '2.0.0'
+        }
+      }),
+      fetch('https://api.webflow.com/user', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'accept-version': '2.0.0'
+        }
+      })
+    ]);
+
+    const [sites, user] = await Promise.all([
+      sitesResponse.json(),
+      userResponse.json()
+    ]);
+
+    console.log("[Auth Callback] Data fetched successfully");
+
+    // Store site authorizations
+    if (Array.isArray(sites)) {
+      console.log("[Auth Callback] Storing site authorizations");
+      await Promise.all(
+        sites.map((site) => db.insertSiteAuthorization(site.id, accessToken))
+      );
+      console.log("[Auth Callback] Site authorizations stored");
+    }
+
+    // Handle response based on the authorization source
+    const isDesignerExtension = state === "webflow_designer";
+    console.log("[Auth Callback] Is designer extension?", isDesignerExtension);
+
+    if (isDesignerExtension) {
       return new NextResponse(
         `<!DOCTYPE html>
         <html>
@@ -76,8 +124,10 @@ export async function GET(request: NextRequest) {
           </head>
           <body>
             <script>
-              window.opener.postMessage('authComplete', '*');
-              window.close();
+              if (window.opener) {
+                window.opener.postMessage('authComplete', 'https://webflow.com');
+                window.close();
+              }
             </script>
           </body>
         </html>`,
@@ -88,28 +138,37 @@ export async function GET(request: NextRequest) {
         }
       );
     } else {
-      // If authorized to the Workspace - redirect to the Dashboard
-      const workspaceIds =
-        authInfo?.authorization?.authorizedTo?.workspaceIds ?? [];
-      if (workspaceIds.length > 0) {
+      // For direct navigation, redirect to appropriate URL
+      const workspaces = user?.workspaces || [];
+      if (workspaces.length > 0) {
         return NextResponse.redirect(
-          `https:/webflow.com/dashboard?workspace=${workspaceIds[0]}`
+          `https://webflow.com/dashboard?workspace=${workspaces[0]}`
         );
-      } else {
-        // If authorized to the Site - redirect to the Designer Extension
-        const firstSite = siteList[0];
-        if (firstSite) {
-          return NextResponse.redirect(
-            `https://${firstSite.shortName}.design.webflow.com?app=${process.env.WEBFLOW_CLIENT_ID}`
-          );
-        }
+      } else if (sites.length > 0) {
+        return NextResponse.redirect(
+          `https://${sites[0].shortName}.design.webflow.com?app=${process.env.WEBFLOW_CLIENT_ID}`
+        );
       }
     }
+
+    // Fallback to dashboard if no specific redirect
+    return NextResponse.redirect('https://webflow.com/dashboard');
+
   } catch (error) {
-    console.error("Error in callback:", error);
-    return NextResponse.json(
-      { error: "Failed to process authorization" },
-      { status: 500 }
-    );
+    console.error("[Auth Callback] Error:", error);
+    console.error("[Auth Callback] Full error:", JSON.stringify({
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    }, null, 2));
+
+    return NextResponse.json({ 
+      error: "Failed to process authorization", 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }, { 
+      status: 500 
+    });
   }
 }
