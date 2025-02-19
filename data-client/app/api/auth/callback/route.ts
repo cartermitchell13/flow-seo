@@ -1,6 +1,6 @@
 import { WebflowClient } from "webflow-api";
 import { NextRequest, NextResponse } from "next/server";
-import db from "../../../lib/utils/database";
+import db from "../../../lib/utils/neon-database";
 
 /**
  * Callback API Route Handler

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import db from "./database";
+import db from "./neon-database";
 
 /**
  * Authentication Utilities

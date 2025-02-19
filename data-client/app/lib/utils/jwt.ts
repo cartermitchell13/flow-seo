@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { NextRequest } from "next/server";
-import db from "./database";
+import db from "./neon-database";
 
 /*
   JWT Utility Functions

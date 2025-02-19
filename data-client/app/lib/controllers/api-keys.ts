@@ -1,4 +1,4 @@
-import database from '../utils/database';
+import database from '../utils/neon-database';
 import { encrypt, decrypt } from '../utils/encryption';
 
 /**

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "../../../lib/utils/jwt";
-import db from "../../../lib/utils/database";
+import db from "../../../lib/utils/neon-database";
 
 /*
     Token Exchange API Route
