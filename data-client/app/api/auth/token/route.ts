@@ -102,6 +102,11 @@ export async function POST(request: NextRequest) {
     const tokenPayload = await jwt.createSessionToken(user);
     const sessionToken = tokenPayload.sessionToken;
     const expAt = tokenPayload.exp;
+    
+    if (!expAt) {
+      throw new Error("Failed to generate session token expiration");
+    }
+
     console.log("Session token generated, expires:", new Date(expAt * 1000).toISOString());
 
     // Store both site and user authorizations

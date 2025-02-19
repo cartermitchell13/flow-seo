@@ -29,39 +29,34 @@ interface User {
 
 interface JWTPayload {
   user: User;
+  exp: number;
+}
+
+interface SessionToken {
+  sessionToken: string;
+  exp: number;
 }
 
 /**
  * Creates a signed JWT session token for authenticated users
- *
+ * 
  * @param user - Object containing user ID and email
- * @returns Promise containing:
- *   - sessionToken: Signed JWT token
- *   - exp: Token expiration timestamp
- *
- * Flow:
- * 1. Encodes signing secret
- * 2. Creates and signs token with 24h expiration
- * 3. Verifies token and extracts expiration
+ * @returns Promise containing sessionToken and expiration
  */
-const createSessionToken = async (user: User) => {
-  // Encode secret
+async function createSessionToken(user: User): Promise<SessionToken> {
   const secret = new TextEncoder().encode(process.env.WEBFLOW_CLIENT_SECRET);
+  const exp = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // 24 hours from now
 
-  // Create session token
-  const sessionToken = await new SignJWT({ user })
+  const token = await new SignJWT({ user })
     .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime("24h")
+    .setExpirationTime(exp)
     .sign(secret);
 
-  // Decode token
-  const decodedToken = await jwtVerify(sessionToken, secret);
-
   return {
-    sessionToken,
-    exp: decodedToken.payload.exp,
+    sessionToken: token,
+    exp
   };
-};
+}
 
 /**
  * Validates JWT token from request and retrieves associated access token
