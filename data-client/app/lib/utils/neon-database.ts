@@ -13,7 +13,7 @@ import { AuthResponse, SiteAuthorization, UserAuthorization } from './database-t
  */
 
 // Get the database URL from environment variables
-const DATABASE_URL = process.env.POSTGRES_URL_NON_POOLING!;
+const DATABASE_URL = process.env.POSTGRES_URL!;
 
 // Create the neon SQL instance
 const sql = neon(DATABASE_URL);
@@ -25,7 +25,8 @@ const sql = neon(DATABASE_URL);
 export async function initializeDatabase() {
   try {
     console.log("Creating database tables if they don't exist");
-    // Create tables for site and user authorizations
+    
+    // Combine all CREATE TABLE statements into a single query
     await sql`
       CREATE TABLE IF NOT EXISTS site_authorizations (
         site_id TEXT PRIMARY KEY,
@@ -55,8 +56,9 @@ export async function initializeDatabase() {
         provider TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, site_id)
-      );
+      )
     `;
+    
     console.log("Database tables created successfully");
   } catch (error) {
     console.error("Error initializing database:", error);
