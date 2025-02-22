@@ -26,8 +26,8 @@ export async function initializeDatabase() {
   try {
     console.log("Creating database tables if they don't exist");
     
-    // Use a regular string for the SQL query instead of template literal
-    const query = `
+    // Use template literal for the query instead of raw
+    await sql`
       DO $$ 
       BEGIN 
         CREATE TABLE IF NOT EXISTS site_authorizations (
@@ -62,7 +62,6 @@ export async function initializeDatabase() {
       END $$;
     `;
     
-    await sql.raw(query);
     console.log("Database tables created successfully");
   } catch (error) {
     console.error("Error initializing database:", error);

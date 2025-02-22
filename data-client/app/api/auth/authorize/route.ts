@@ -14,29 +14,23 @@ const scopes = [
   "assets:read",
   "assets:write",
   "sites:read",
-  "sites:write",
-  "custom_code:read",
-  "custom_code:write",
-  "authorized_user:read",
-  "pages:read",
-  "pages:write",
-  "cms:read"
+  "authorized_user:read"
 ].join(' ');
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const state = searchParams.get("state") || '';
+  // Always use the environment state for CSRF protection
+  const state = process.env.OAUTH_STATE;
+  if (!state) {
+    throw new Error('OAUTH_STATE environment variable is not set');
+  }
 
   // Construct the authorization URL according to Webflow's spec
   const authorizeUrl = new URL('https://webflow.com/oauth/authorize');
   authorizeUrl.searchParams.append('client_id', process.env.WEBFLOW_CLIENT_ID!);
   authorizeUrl.searchParams.append('response_type', 'code');
   authorizeUrl.searchParams.append('scope', scopes);
-  
-  // Add state if provided (used for designer extension flow)
-  if (state) {
-    authorizeUrl.searchParams.append('state', state);
-  }
+  authorizeUrl.searchParams.append('state', state);
+  authorizeUrl.searchParams.append('redirect_uri', process.env.PRODUCTION_OAUTH_CALLBACK_URL!);
 
   return NextResponse.redirect(authorizeUrl.toString());
 }
