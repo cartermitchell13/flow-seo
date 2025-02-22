@@ -26,39 +26,43 @@ export async function initializeDatabase() {
   try {
     console.log("Creating database tables if they don't exist");
     
-    // Combine all CREATE TABLE statements into a single query
-    await sql`
-      CREATE TABLE IF NOT EXISTS site_authorizations (
-        site_id TEXT PRIMARY KEY,
-        access_token TEXT NOT NULL
-      );
+    // Use a regular string for the SQL query instead of template literal
+    const query = `
+      DO $$ 
+      BEGIN 
+        CREATE TABLE IF NOT EXISTS site_authorizations (
+          site_id TEXT PRIMARY KEY,
+          access_token TEXT NOT NULL
+        );
 
-      CREATE TABLE IF NOT EXISTS user_authorizations (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        access_token TEXT NOT NULL
-      );
+        CREATE TABLE IF NOT EXISTS user_authorizations (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          access_token TEXT NOT NULL
+        );
 
-      CREATE TABLE IF NOT EXISTS api_keys (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        site_id TEXT NOT NULL,
-        provider TEXT NOT NULL,
-        encrypted_key TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, site_id, provider)
-      );
+        CREATE TABLE IF NOT EXISTS api_keys (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          site_id TEXT NOT NULL,
+          provider TEXT NOT NULL,
+          encrypted_key TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, site_id, provider)
+        );
 
-      CREATE TABLE IF NOT EXISTS selected_providers (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        site_id TEXT NOT NULL,
-        provider TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, site_id)
-      )
+        CREATE TABLE IF NOT EXISTS selected_providers (
+          id SERIAL PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          site_id TEXT NOT NULL,
+          provider TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, site_id)
+        );
+      END $$;
     `;
     
+    await sql.raw(query);
     console.log("Database tables created successfully");
   } catch (error) {
     console.error("Error initializing database:", error);

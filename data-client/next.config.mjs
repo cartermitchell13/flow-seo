@@ -1,6 +1,6 @@
 const allowedOrigins = {
   development: ["http://localhost:1337"],
-  production: ["https://673b686ea8b85674a05f21e1.webflow-ext.com"],
+  production: ["https://67a52dfc4cdf429141cdc2b8.webflow-ext.com"],
   test: ["http://localhost:1337"],
 };
 
