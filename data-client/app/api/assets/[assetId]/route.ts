@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AssetService } from "../../../services/assets";
-import { db } from "../../../db";
+import db from "../../../lib/utils/database";
 
 /**
  * GET /api/assets/[assetId]
@@ -24,15 +24,15 @@ export async function GET(
     }
 
     // Get the access token from the database
-    const auth = await db.getAuth();
-    if (!auth?.access_token) {
+    const accessToken = await db.getAccessTokenFromSiteId(siteId);
+    if (!accessToken) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const assetService = new AssetService(auth.access_token);
+    const assetService = new AssetService(accessToken);
     const asset = await assetService.getAsset(siteId, params.assetId);
 
     return NextResponse.json(asset);
@@ -75,15 +75,15 @@ export async function PATCH(
     }
 
     // Get the access token from the database
-    const auth = await db.getAuth();
-    if (!auth?.access_token) {
+    const accessToken = await db.getAccessTokenFromSiteId(siteId);
+    if (!accessToken) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const assetService = new AssetService(auth.access_token);
+    const assetService = new AssetService(accessToken);
     const asset = await assetService.updateAssetAltText(
       siteId,
       params.assetId,

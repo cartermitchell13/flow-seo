@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateAssetAltText } from '../../services/webflow/assets';
-import { getSession } from '../../lib/auth/session';
+import auth from '../../lib/utils/auth';
 
 /**
  * API endpoint to update asset alt text in Webflow
@@ -13,11 +13,11 @@ export async function PATCH(req: NextRequest) {
   
   try {
     // Get the authenticated session
-    const session = await getSession(req);
-    console.log('Session check:', { hasSession: !!session });
+    const user = await auth.verifyAccessToken(req);
+    console.log('Session check:', { hasUser: !!user });
     
-    if (!session) {
-      console.log('No session found');
+    if (!user) {
+      console.log('No user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -35,19 +35,26 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // Get access token for the site
+    const accessToken = await auth.getStoredAccessToken(user.id);
+    
     console.log('Updating alt text with:', {
       siteId,
       assetId,
       altText,
-      hasAccessToken: !!session.accessToken
+      hasAccessToken: !!accessToken
     });
+
+    if (!accessToken) {
+      return NextResponse.json({ error: 'No access token found' }, { status: 401 });
+    }
 
     // Update the alt text in Webflow
     const result = await updateAssetAltText(
       siteId,
       assetId,
       altText,
-      session.accessToken
+      accessToken
     );
 
     console.log('Update successful:', result);

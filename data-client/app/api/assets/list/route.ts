@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AssetService } from "../../../services/assets";
-import { db } from "../../../db";
+import db from "../../../lib/utils/database";
 
 /**
  * GET /api/assets/list
@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     const siteId = searchParams.get("siteId");
     const cursor = searchParams.get("cursor");
     const limit = searchParams.get("limit");
+    const offset = searchParams.get("offset");
 
     if (!siteId) {
       return NextResponse.json(
@@ -24,19 +25,19 @@ export async function GET(request: Request) {
     }
 
     // Get the access token from the database
-    const auth = await db.getAuth();
-    if (!auth?.access_token) {
+    const accessToken = await db.getAccessTokenFromSiteId(siteId);
+    if (!accessToken) {
       return NextResponse.json(
         { error: "Not authenticated" },
         { status: 401 }
       );
     }
 
-    const assetService = new AssetService(auth.access_token);
+    const assetService = new AssetService(accessToken);
     const response = await assetService.listAssets({
       siteId,
-      cursor: cursor || undefined,
       limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined
     });
 
     return NextResponse.json(response);
