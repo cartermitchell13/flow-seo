@@ -13,6 +13,36 @@ function cleanAltText(text: string): string {
   return cleanedText.trim();
 }
 
+/**
+ * Creates a prompt for alt text generation that includes site context for SEO
+ * @param request The alt text generation request with optional site context
+ * @returns A prompt string with SEO context
+ */
+function createSeoPrompt(request: GenerateAltTextRequest): string {
+  let prompt = "Generate a concise, descriptive alt text for this image. Focus on the main subject and important details. Keep it under 125 characters.";
+  
+  // Add SEO context if available
+  if (request.siteContext) {
+    const { siteName, keywords, description } = request.siteContext;
+    
+    prompt += "\n\nThis image is for a website called " + siteName;
+    
+    if (description) {
+      prompt += ". The site is about: " + description;
+    }
+    
+    if (keywords && keywords.length > 0) {
+      prompt += "\n\nWhere appropriate, try to naturally incorporate one or more of these keywords: " + 
+        keywords.slice(0, 5).join(", ") + 
+        ". Only use keywords that are genuinely relevant to the image content.";
+    }
+    
+    prompt += "\n\nThe alt text should be SEO-friendly but still accurately describe the image. Don't force keywords if they don't fit naturally.";
+  }
+  
+  return prompt;
+}
+
 export async function generateAltTextWithOpenAI(
   request: GenerateAltTextRequest
 ): Promise<GenerateAltTextResponse> {
@@ -21,6 +51,9 @@ export async function generateAltTextWithOpenAI(
   });
 
   try {
+    // Create a prompt that includes SEO context if available
+    const prompt = createSeoPrompt(request);
+    
     const response = await openai.chat.completions.create({
       model: "gpt-4-vision-preview",
       messages: [
@@ -29,11 +62,13 @@ export async function generateAltTextWithOpenAI(
           content: [
             { 
               type: "text", 
-              text: "Generate a concise, descriptive alt text for this image. Focus on the main subject and important details. Keep it under 125 characters." 
+              text: prompt
             },
             {
               type: "image_url",
-              image_url: request.imageUrl,
+              image_url: {
+                url: request.imageUrl
+              }
             },
           ],
         },

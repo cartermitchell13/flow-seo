@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateAltText } from "../../services/ai";
 import auth from "../../lib/utils/auth";
 import { apiKeysController } from "../../lib/controllers/api-keys";
+import { getSiteContext } from "../../services/webflow/assets";
+import db from "../../lib/utils/database";
 
 /**
  * API Route for generating alt text using AI providers
@@ -14,9 +16,14 @@ import { apiKeysController } from "../../lib/controllers/api-keys";
  * - Validates image URLs and provider configuration
  */
 
+// Get allowed origin from environment variable, fallback to localhost in development
+const ALLOWED_ORIGIN = process.env.NODE_ENV === 'production' 
+  ? (process.env.DESIGNER_EXTENSION_URI || 'https://67a52dfc4cdf429141cdc2b8.webflow-ext.com')
+  : 'http://localhost:1337';
+
 // CORS headers for cross-origin requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'http://localhost:1337',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Allow-Credentials': 'true',
@@ -44,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    const { imageUrl, provider } = body;
+    const { imageUrl, provider, siteId } = body;
 
     // Validate request
     if (!imageUrl || !provider) {
@@ -74,11 +81,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate alt text
+    // Fetch site context for SEO if siteId is provided
+    let siteContext = undefined;
+    if (siteId) {
+      try {
+        // Get access token for the site
+        const accessToken = await db.getAccessTokenFromSiteId(siteId);
+        if (accessToken) {
+          // Fetch site context
+          siteContext = await getSiteContext(siteId, accessToken);
+          console.log('Using site context for SEO:', siteContext);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch site context:', error);
+        // Continue without site context if there's an error
+      }
+    }
+
+    // Generate alt text with site context if available
     const result = await generateAltText({
       imageUrl,
       provider,
-      apiKey
+      apiKey,
+      siteContext
     });
 
     return NextResponse.json(result, { headers: corsHeaders });

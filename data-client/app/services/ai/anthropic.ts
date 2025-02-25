@@ -45,6 +45,36 @@ function cleanAltText(text: string): string {
   return cleanedText.trim();
 }
 
+/**
+ * Creates a prompt for alt text generation that includes site context for SEO
+ * @param request The alt text generation request with optional site context
+ * @returns A prompt string with SEO context
+ */
+function createSeoPrompt(request: GenerateAltTextRequest): string {
+  let prompt = "Generate a concise, descriptive alt text for this image. Focus on the main subject and important details. Keep it under 125 characters.";
+  
+  // Add SEO context if available
+  if (request.siteContext) {
+    const { siteName, keywords, description } = request.siteContext;
+    
+    prompt += "\n\nThis image is for a website called " + siteName;
+    
+    if (description) {
+      prompt += ". The site is about: " + description;
+    }
+    
+    if (keywords && keywords.length > 0) {
+      prompt += "\n\nWhere appropriate, try to naturally incorporate one or more of these keywords: " + 
+        keywords.slice(0, 5).join(", ") + 
+        ". Only use keywords that are genuinely relevant to the image content.";
+    }
+    
+    prompt += "\n\nThe alt text should be SEO-friendly but still accurately describe the image. Don't force keywords if they don't fit naturally.";
+  }
+  
+  return prompt;
+}
+
 export async function generateAltTextWithAnthropic(
   request: GenerateAltTextRequest
 ): Promise<GenerateAltTextResponse> {
@@ -56,6 +86,9 @@ export async function generateAltTextWithAnthropic(
     // Convert image URL to base64 and get mime type
     const { base64, mimeType } = await imageUrlToBase64(request.imageUrl);
     
+    // Create a prompt that includes SEO context if available
+    const prompt = createSeoPrompt(request);
+    
     const response = await anthropic.messages.create({
       model: "claude-3-opus-20240229",
       max_tokens: 100,
@@ -65,13 +98,13 @@ export async function generateAltTextWithAnthropic(
           content: [
             {
               type: "text",
-              text: "Generate a concise, descriptive alt text for this image. Focus on the main subject and important details. Keep it under 125 characters."
+              text: prompt
             },
             {
               type: "image",
               source: {
                 type: "base64",
-                media_type: mimeType,
+                media_type: mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
                 data: base64
               }
             }
@@ -80,7 +113,7 @@ export async function generateAltTextWithAnthropic(
       ]
     });
 
-    const altText = response.content[0]?.text || 'No description generated';
+    const altText = response.content[0]?.type === 'text' ? response.content[0].text : 'No description generated';
 
     return {
       altText: cleanAltText(altText),

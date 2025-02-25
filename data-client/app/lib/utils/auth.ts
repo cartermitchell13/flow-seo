@@ -27,10 +27,17 @@ interface DecodedToken {
  */
 export function getAuthUrl() {
   const clientId = process.env.WEBFLOW_CLIENT_ID!;
-  const state = Math.random().toString(36).substring(7);
+  const state = "webflow_designer"; // Use consistent state for designer extension
   const scope = scopes.join(" ");
   
-  return `https://webflow.com/oauth/authorize?client_id=${clientId}&response_type=code&scope=${scope}&state=${state}`;
+  // Determine the correct redirect URI based on environment
+  const redirectUri = process.env.NODE_ENV === 'production'
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`
+    : 'http://localhost:3000/api/auth/callback';
+  
+  console.log("[Auth] Using redirect URI:", redirectUri);
+  
+  return `https://webflow.com/oauth/authorize?client_id=${clientId}&response_type=code&scope=${scope}&state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 }
 
 /**
@@ -40,6 +47,13 @@ export async function exchangeCodeForToken(code: string) {
   const clientId = process.env.WEBFLOW_CLIENT_ID!;
   const clientSecret = process.env.WEBFLOW_CLIENT_SECRET!;
   
+  // Use the same redirect URI as in getAuthUrl
+  const redirectUri = process.env.NODE_ENV === 'production'
+    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`
+    : 'http://localhost:3000/api/auth/callback';
+  
+  console.log("[Auth] Exchanging code for token with redirect URI:", redirectUri);
+  
   const response = await fetch("https://api.webflow.com/oauth/access_token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -48,6 +62,7 @@ export async function exchangeCodeForToken(code: string) {
       client_secret: clientSecret,
       code,
       grant_type: "authorization_code",
+      redirect_uri: redirectUri
     }),
   });
 
@@ -63,18 +78,15 @@ export async function exchangeCodeForToken(code: string) {
  * Store access token in database
  */
 export async function storeAccessToken(userId: string, token: string) {
-  await db.put(`token:${userId}`, {
-    access_token: token,
-    created_at: Date.now(),
-  });
+  await db.insertUserAuthorization(userId, token);
 }
 
 /**
  * Get access token from database
  */
 export async function getStoredAccessToken(userId: string) {
-  const data = await db.get<{ access_token: string }>(`token:${userId}`);
-  return data?.access_token;
+  const token = await db.getAccessTokenFromUserId(userId);
+  return token;
 }
 
 /**

@@ -8,9 +8,14 @@ import auth from "../../lib/utils/auth";
  * Handles OAuth flow for Designer Extension authentication.
  */
 
+// Get allowed origin from environment variable, fallback to localhost in development
+const ALLOWED_ORIGIN = process.env.NODE_ENV === 'production' 
+  ? (process.env.DESIGNER_EXTENSION_URI || 'https://67a52dfc4cdf429141cdc2b8.webflow-ext.com')
+  : 'http://localhost:1337';
+
 // CORS headers for cross-origin requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'http://localhost:1337',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Allow-Credentials': 'true',
@@ -55,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     // Set authorization header and redirect with token in URL
     const response = NextResponse.redirect(
-      `http://localhost:1337/?authorized=true&token=${encodeURIComponent(token.access_token)}`
+      `${ALLOWED_ORIGIN}/?authorized=true&token=${encodeURIComponent(token.access_token)}`
     );
     response.headers.set(
       "Authorization",
