@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     const tokenPayload = await jwt.createSessionToken(user);
     const sessionToken = tokenPayload.sessionToken;
     const expAt = tokenPayload.exp;
-    console.log("Session token generated, expires:", new Date(expAt * 1000).toISOString());
+    console.log("Session token generated, expires:", expAt ? new Date(expAt * 1000).toISOString() : 'unknown');
 
     // Store both site and user authorizations
     console.log("Storing authorizations...");

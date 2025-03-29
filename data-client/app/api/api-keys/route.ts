@@ -16,7 +16,9 @@ import auth from "../../lib/utils/auth";
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'http://localhost:1337',
+  'Access-Control-Allow-Origin': process.env.NODE_ENV === 'production' 
+    ? (process.env.DESIGNER_EXTENSION_URI || '*')
+    : 'http://localhost:1337',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS, DELETE',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Allow-Credentials': 'true',
@@ -34,8 +36,8 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify access token and get user
-    const user = await auth.verifyAccessToken(request);
-    if (!user) {
+    const userInfo = await auth.verifyAccessToken(request);
+    if (!userInfo) {
       return NextResponse.json({ error: "Unauthorized" }, { 
         status: 401,
         headers: corsHeaders
@@ -44,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    const { provider, apiKey } = body;
+    const { provider, apiKey, siteId } = body;
 
     // Validate request
     if (!provider || !apiKey) {
@@ -57,10 +59,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Extract user ID from the user info
+    const userId = userInfo.user.id;
+    
+    // Use provided siteId or default
+    const targetSiteId = siteId || "default";
+
+    console.log(`[API Keys] Saving API key for user ${userId}, site ${targetSiteId}, provider ${provider}`);
+
     // Save API key with user ID
     await apiKeysController.saveApiKey(
-      user.id,
-      user.workspaces[0]?.id || "default",
+      userId,
+      targetSiteId,
       provider,
       apiKey
     );
@@ -90,8 +100,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify access token and get user
-    const user = await auth.verifyAccessToken(request);
-    if (!user) {
+    const userInfo = await auth.verifyAccessToken(request);
+    if (!userInfo) {
       return NextResponse.json({ error: "Unauthorized" }, { 
         status: 401,
         headers: corsHeaders
@@ -105,16 +115,16 @@ export async function GET(request: NextRequest) {
     if (!provider) {
       // If no provider specified, return the selected provider
       const selectedProvider = await apiKeysController.getSelectedProvider(
-        user.id,
-        user.workspaces[0]?.id || "default"
+        userInfo.user.id,
+        "default"
       );
       return NextResponse.json({ provider: selectedProvider }, { headers: corsHeaders });
     }
 
     // Get API key
     const apiKey = await apiKeysController.getApiKey(
-      user.id,
-      user.workspaces[0]?.id || "default",
+      userInfo.user.id,
+      "default",
       provider
     );
 
@@ -153,8 +163,8 @@ export async function DELETE(request: NextRequest) {
 
   try {
     // Verify access token and get user
-    const user = await auth.verifyAccessToken(request);
-    if (!user) {
+    const userInfo = await auth.verifyAccessToken(request);
+    if (!userInfo) {
       return NextResponse.json({ error: "Unauthorized" }, { 
         status: 401,
         headers: corsHeaders
@@ -163,7 +173,7 @@ export async function DELETE(request: NextRequest) {
 
     // Get request body
     const body = await request.json();
-    const { provider } = body;
+    const { provider, siteId } = body;
 
     // Validate request
     if (!provider) {
@@ -176,10 +186,18 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Extract user ID from the user info
+    const userId = userInfo.user.id;
+    
+    // Use provided siteId or default
+    const targetSiteId = siteId || "default";
+
+    console.log(`[API Keys] Deleting API key for user ${userId}, site ${targetSiteId}, provider ${provider}`);
+
     // Delete API key
     await apiKeysController.deleteApiKey(
-      user.id,
-      user.workspaces[0]?.id || "default",
+      userId,
+      targetSiteId,
       provider
     );
 

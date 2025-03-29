@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     console.log('User ID:', userId);
 
     // 3. Save API key using controller
-    const result = await apiKeysController.saveApiKey(userId, provider, apiKey);
+    const result = await apiKeysController.saveApiKey(userId, "default", provider, apiKey);
     console.log('Save result:', result);
 
     return new NextResponse(

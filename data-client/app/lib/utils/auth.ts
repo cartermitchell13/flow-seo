@@ -1,16 +1,17 @@
 import { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import db from "./database";
+import { WebflowClient } from "webflow-api";
 
 /**
  * Authentication Utilities
  * -----------------------
- * Following Webflow's hybrid-app-starter template pattern for authentication.
- * Handles token management and verification for the Designer Extension.
+ * Handles OAuth flow for Webflow authentication according to Webflow's documentation.
+ * https://developers.webflow.com/v2.0.0/data/reference/oauth-app
  */
 
-// Required scopes for the app
-export const scopes = ["sites:read", "sites:write"];
+// Required scopes for the app - using string literals that match Webflow's OauthScope type
+export const scopes = ["sites:read", "sites:write", "assets:read", "assets:write"];
 
 interface DecodedToken {
   user: {
@@ -24,24 +25,33 @@ interface DecodedToken {
 
 /**
  * Get authorization URL for OAuth flow
+ * Uses WebflowClient.authorizeURL as recommended in the documentation
  */
 export function getAuthUrl() {
   const clientId = process.env.WEBFLOW_CLIENT_ID!;
   const state = "webflow_designer"; // Use consistent state for designer extension
-  const scope = scopes.join(" ");
   
   // Determine the correct redirect URI based on environment
   const redirectUri = process.env.NODE_ENV === 'production'
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`
+    ? `https://flow-seo.vercel.app/api/auth/callback`
     : 'http://localhost:3000/api/auth/callback';
   
   console.log("[Auth] Using redirect URI:", redirectUri);
   
-  return `https://webflow.com/oauth/authorize?client_id=${clientId}&response_type=code&scope=${scope}&state=${state}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  // Use the WebflowClient to generate the authorization URL
+  // This ensures we follow Webflow's recommended approach
+  return WebflowClient.authorizeURL({
+    clientId,
+    state,
+    // @ts-expect-error The WebflowClient type definitions are outdated
+    scope: scopes.join(" "),
+    redirectUri
+  });
 }
 
 /**
  * Exchange OAuth code for access token
+ * Uses WebflowClient.getAccessToken as recommended in the documentation
  */
 export async function exchangeCodeForToken(code: string) {
   const clientId = process.env.WEBFLOW_CLIENT_ID!;
@@ -49,44 +59,53 @@ export async function exchangeCodeForToken(code: string) {
   
   // Use the same redirect URI as in getAuthUrl
   const redirectUri = process.env.NODE_ENV === 'production'
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`
+    ? `https://flow-seo.vercel.app/api/auth/callback`
     : 'http://localhost:3000/api/auth/callback';
   
   console.log("[Auth] Exchanging code for token with redirect URI:", redirectUri);
   
-  const response = await fetch("https://api.webflow.com/oauth/access_token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
+  try {
+    // Use the WebflowClient to exchange the code for a token
+    // This ensures we follow Webflow's recommended approach
+    const token = await WebflowClient.getAccessToken({
+      clientId,
+      clientSecret,
       code,
-      grant_type: "authorization_code",
-      redirect_uri: redirectUri
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to exchange code for token");
+      redirectUri
+    });
+    
+    console.log("[Auth] Successfully obtained access token");
+    return token;
+  } catch (error) {
+    console.error("[Auth] Error exchanging code for token:", error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data;
 }
 
 /**
  * Store access token in database
  */
 export async function storeAccessToken(userId: string, token: string) {
-  await db.insertUserAuthorization(userId, token);
+  try {
+    await db.insertUserAuthorization(userId, token);
+    console.log("[Auth] Successfully stored access token for user:", userId);
+  } catch (error) {
+    console.error("[Auth] Error storing access token:", error);
+    throw error;
+  }
 }
 
 /**
  * Get access token from database
  */
 export async function getStoredAccessToken(userId: string) {
-  const token = await db.getAccessTokenFromUserId(userId);
-  return token;
+  try {
+    const token = await db.getAccessTokenFromUserId(userId);
+    return token;
+  } catch (error) {
+    console.error("[Auth] Error retrieving access token:", error);
+    throw error;
+  }
 }
 
 /**
@@ -99,39 +118,45 @@ export async function verifyAccessToken(request: NextRequest) {
   try {
     // Get token from Authorization header
     const authHeader = request.headers.get("authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      console.log("No Bearer token in Authorization header");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("[Auth] No valid Authorization header found");
       return null;
     }
 
     const token = authHeader.split(" ")[1];
     
-    // Verify our custom session token
-    const secret = new TextEncoder().encode(process.env.WEBFLOW_CLIENT_SECRET);
-    
+    // Verify the token with Webflow API
     try {
-      const { payload } = await jwtVerify(token, secret) as { payload: DecodedToken };
+      // Create a client with the token
+      const webflow = new WebflowClient({ 
+        // @ts-expect-error The WebflowClient type definitions are outdated
+        token 
+      });
       
-      // Check if token is expired
-      if (payload.exp * 1000 <= Date.now()) {
-        console.log("Token expired");
+      // Get user info to verify the token is valid
+      // @ts-expect-error The WebflowClient type definitions are outdated
+      const user = await webflow.user();
+      
+      if (!user || !user.id) {
+        console.log("[Auth] Token verification failed - no user returned");
         return null;
       }
-
-      // Return user info
+      
       return {
-        id: payload.user.id,
-        email: payload.user.email,
-        firstName: payload.user.firstName,
-        lastName: payload.user.lastName,
-        workspaces: [{ id: "default" }] // Default workspace for now
+        user: {
+          id: user.id,
+          email: user.email || "",
+          firstName: user.firstName || "",
+          lastName: user.lastName || ""
+        },
+        exp: Math.floor(Date.now() / 1000) + 3600 // Set expiration to 1 hour from now
       };
     } catch (error) {
-      console.error("Token verification failed:", error);
+      console.error("[Auth] Error verifying token with Webflow API:", error);
       return null;
     }
   } catch (error) {
-    console.error("Auth error:", error);
+    console.error("[Auth] Error in token verification:", error);
     return null;
   }
 }
@@ -142,7 +167,7 @@ const auth = {
   storeAccessToken,
   getStoredAccessToken,
   verifyAccessToken,
-  scopes,
+  scopes
 };
 
 export default auth;

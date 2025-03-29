@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build:prod": "tsc && vite build --mode prod  && webflow extension bundle && mv bundle.zip bundle/prod/bundle_$(date +'%Y-%m-%d_%H-%M-%S').zip",
-    "build:dev": "tsc && vite build --mode development && webflow extension bundle && mv bundle.zip bundle/development/bundle_$(date +'%Y-%m-%d_%H-%M-%S').zip",
+    "build:prod": "tsc && vite build --mode prod && webflow extension bundle && (if not exist bundle\\prod mkdir bundle\\prod) && move /Y bundle.zip bundle\\prod\\bundle_%DATE:~10,4%-%DATE:~4,2%-%DATE:~7,2%.zip",
+    "build:dev": "tsc && vite build --mode development && webflow extension bundle && (if not exist bundle\\development mkdir bundle\\development) && move /Y bundle.zip bundle\\development\\bundle_%DATE:~10,4%-%DATE:~4,2%-%DATE:~7,2%.zip",
     "lint": "eslint .",
     "preview": "vite preview"
   },

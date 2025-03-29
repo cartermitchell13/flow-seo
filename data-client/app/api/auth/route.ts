@@ -10,7 +10,7 @@ import auth from "../../lib/utils/auth";
 
 // Get allowed origin from environment variable, fallback to localhost in development
 const ALLOWED_ORIGIN = process.env.NODE_ENV === 'production' 
-  ? (process.env.DESIGNER_EXTENSION_URI || 'https://67a52dfc4cdf429141cdc2b8.webflow-ext.com')
+  ? (process.env.DESIGNER_EXTENSION_URI || '*')
   : 'http://localhost:1337';
 
 // CORS headers for cross-origin requests
@@ -31,6 +31,11 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error");
   const error_description = searchParams.get("error_description");
 
+  // Log request information for debugging
+  console.log("[Auth] Request URL:", request.url);
+  console.log("[Auth] Search Params:", Object.fromEntries(searchParams.entries()));
+  console.log("[Auth] Headers:", Object.fromEntries(request.headers.entries()));
+
   // Handle OAuth errors
   if (error) {
     console.error("OAuth Error:", error, error_description);
@@ -40,34 +45,46 @@ export async function GET(request: NextRequest) {
   // If no code, redirect to Webflow auth page
   if (!code) {
     const installUrl = auth.getAuthUrl();
+    console.log("[Auth] Redirecting to Webflow auth URL:", installUrl);
     return NextResponse.redirect(installUrl);
   }
 
   try {
+    console.log("[Auth] Exchanging code for token...");
     // Exchange code for access token
     const token = await auth.exchangeCodeForToken(code);
+    console.log("[Auth] Token received successfully");
 
     // Get user info
+    console.log("[Auth] Fetching user info...");
+    // @ts-expect-error The token response type is not properly defined
+    const accessToken = token.access_token;
+    
     const user = await fetch("https://api.webflow.com/user", {
       headers: {
-        Authorization: `Bearer ${token.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
         "accept-version": "1.0.0",
       },
     }).then(res => res.json());
+    console.log("[Auth] User info received:", user.id);
 
     // Store token in database
-    await auth.storeAccessToken(user.id, token.access_token);
+    console.log("[Auth] Storing access token...");
+    await auth.storeAccessToken(user.id, accessToken);
+    console.log("[Auth] Token stored successfully");
 
     // Set authorization header and redirect with token in URL
+    console.log("[Auth] Redirecting to:", `${ALLOWED_ORIGIN}/?authorized=true&token=${accessToken.substring(0, 10)}...`);
     const response = NextResponse.redirect(
-      `${ALLOWED_ORIGIN}/?authorized=true&token=${encodeURIComponent(token.access_token)}`
+      `${ALLOWED_ORIGIN}/?authorized=true&token=${encodeURIComponent(accessToken)}`
     );
     response.headers.set(
       "Authorization",
-      `Bearer ${token.access_token}`
+      `Bearer ${accessToken}`
     );
 
     // Add CORS headers
+    console.log("[Auth] Adding CORS headers:", corsHeaders);
     Object.entries(corsHeaders).forEach(([key, value]) => {
       response.headers.set(key, value);
     });

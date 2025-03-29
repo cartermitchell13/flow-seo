@@ -12,16 +12,17 @@ export async function PATCH(req: NextRequest) {
   console.log('Received update alt text request');
   
   try {
-    // Get the authenticated session
-    const user = await auth.verifyAccessToken(req);
-    console.log('Session check:', { hasUser: !!user });
-    
-    if (!user) {
+    // Verify access token and get user
+    const userInfo = await auth.verifyAccessToken(req);
+    if (!userInfo) {
       console.log('No user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get request data
+    // Extract user ID from the user info
+    const userId = userInfo.user.id;
+
+    // Get request body
     const body = await req.json();
     console.log('Request body:', body);
     const { siteId, assetId, altText } = body;
@@ -36,7 +37,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Get access token for the site
-    const accessToken = await auth.getStoredAccessToken(user.id);
+    const accessToken = await auth.getStoredAccessToken(userId);
     
     console.log('Updating alt text with:', {
       siteId,

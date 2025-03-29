@@ -2,90 +2,176 @@ import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { Database as SQLiteDatabase } from "sqlite";
 import { mkdir } from "fs/promises";
+import pg from 'pg';
 
 /**
  * Database Utility
  * ---------------
- * This module provides functions to interact with a SQLite database.
+ * This module provides functions to interact with a database.
+ * It supports both SQLite (for local development) and PostgreSQL/Neon (for production).
  * It ensures a single connection to the database and manages tables for:
  * - Site authorizations
  * - User authorizations
  * - API keys
  */
 
-/**
- * Gets or initializes the SQLite database connection.
- * Implements a singleton pattern to ensure only one database connection exists.
- *
- * The function:
- * 1. Creates the database directory if it doesn't exist
- * 2. Establishes a connection to the SQLite database
- * 3. Initializes required tables:
- *    - SiteAuthorizations: Stores site ID and access token pairs
- *    - UserAuthorizations: Maps user IDs to their access tokens
- *    - ApiKeys: Stores encrypted API keys for each provider
- *    - SelectedProviders: Tracks the selected AI provider for each user/site
- *
- * @returns Promise<SQLiteDatabase> The database connection instance
- * @throws Error if database initialization fails
- */
+// Interface for database operations to support both SQLite and PostgreSQL
+interface DatabaseConnection {
+  exec(sql: string): Promise<void>;
+  get<T>(sql: string, ...params: any[]): Promise<T | undefined>;
+  all<T>(sql: string, ...params: any[]): Promise<T[]>;
+  run(sql: string, ...params: any[]): Promise<any>;
+}
 
 // Singleton pattern to maintain one database connection
-let db: SQLiteDatabase | null = null;
+let dbConnection: DatabaseConnection | null = null;
 
-async function getDb() {
-  // If a database doesn't exist, create one
-  if (!db) {
-    const dbPath = "./db/database.db";
-    const dbDir = "./db";
-
-    try {
-      // Ensure the directory exists
-      await mkdir(dbDir, { recursive: true });
-
-      // Open SQLite database connection with specified file path and driver
-      db = await open({
-        filename: dbPath,
-        driver: sqlite3.Database,
-      });
-
-      // Create tables for SiteAuthorizations and UserAuthorizations if they don't exist
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS siteAuthorizations (
-          siteId TEXT PRIMARY KEY,
-          accessToken TEXT
-        );
+/**
+ * Gets or initializes the database connection.
+ * Implements a singleton pattern to ensure only one database connection exists.
+ * Uses SQLite for development and PostgreSQL for production.
+ *
+ * @returns Promise<DatabaseConnection> The database connection instance
+ * @throws Error if database initialization fails
+ */
+async function getDb(): Promise<DatabaseConnection> {
+  // If a database connection doesn't exist, create one
+  if (!dbConnection) {
+    // Check if we're in production or development
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      // Use PostgreSQL (Neon) in production
+      try {
+        const neonConnectionString = process.env.DATABASE_URL;
         
-        CREATE TABLE IF NOT EXISTS userAuthorizations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          userId TEXT,
-          accessToken TEXT
-        );
+        if (!neonConnectionString) {
+          throw new Error('DATABASE_URL environment variable is required in production');
+        }
+        
+        // Create PostgreSQL client
+        const pgClient = new pg.Client({
+          connectionString: neonConnectionString,
+          ssl: {
+            rejectUnauthorized: false // Required for Neon
+          }
+        });
+        
+        await pgClient.connect();
+        
+        // Create tables if they don't exist
+        await pgClient.query(`
+          CREATE TABLE IF NOT EXISTS siteAuthorizations (
+            siteId TEXT PRIMARY KEY,
+            accessToken TEXT
+          );
+          
+          CREATE TABLE IF NOT EXISTS userAuthorizations (
+            id SERIAL PRIMARY KEY,
+            userId TEXT,
+            accessToken TEXT
+          );
 
-        CREATE TABLE IF NOT EXISTS apiKeys (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          userId TEXT,
-          siteId TEXT,
-          provider TEXT,
-          encryptedKey TEXT,
-          createdAt INTEGER,
-          UNIQUE(userId, siteId, provider)
-        );
+          CREATE TABLE IF NOT EXISTS apiKeys (
+            id SERIAL PRIMARY KEY,
+            userId TEXT,
+            siteId TEXT,
+            provider TEXT,
+            encryptedKey TEXT,
+            createdAt BIGINT,
+            UNIQUE(userId, siteId, provider)
+          );
 
-        CREATE TABLE IF NOT EXISTS selectedProviders (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          userId TEXT,
-          siteId TEXT,
-          provider TEXT,
-          UNIQUE(userId, siteId)
-        );
-      `);
-    } catch (error) {
-      console.error("Error initializing database:", error);
-      throw error;
+          CREATE TABLE IF NOT EXISTS selectedProviders (
+            id SERIAL PRIMARY KEY,
+            userId TEXT,
+            siteId TEXT,
+            provider TEXT,
+            UNIQUE(userId, siteId)
+          );
+        `);
+        
+        // Create a wrapper for PostgreSQL client to match our interface
+        dbConnection = {
+          exec: async (sql: string) => {
+            await pgClient.query(sql);
+          },
+          get: async <T>(sql: string, ...params: any[]): Promise<T | undefined> => {
+            const result = await pgClient.query(sql, params);
+            return result.rows[0] as T | undefined;
+          },
+          all: async <T>(sql: string, ...params: any[]): Promise<T[]> => {
+            const result = await pgClient.query(sql, params);
+            return result.rows as T[];
+          },
+          run: async (sql: string, ...params: any[]): Promise<any> => {
+            return await pgClient.query(sql, params);
+          }
+        };
+        
+        console.log('Connected to PostgreSQL (Neon) database');
+      } catch (error) {
+        console.error("Error initializing PostgreSQL database:", error);
+        throw error;
+      }
+    } else {
+      // Use SQLite in development
+      try {
+        const dbPath = "./db/database.db";
+        const dbDir = "./db";
+
+        // Ensure the directory exists
+        await mkdir(dbDir, { recursive: true });
+
+        // Open SQLite database connection with specified file path and driver
+        const sqliteDb = await open({
+          filename: dbPath,
+          driver: sqlite3.Database,
+        });
+
+        // Create tables for SiteAuthorizations and UserAuthorizations if they don't exist
+        await sqliteDb.exec(`
+          CREATE TABLE IF NOT EXISTS siteAuthorizations (
+            siteId TEXT PRIMARY KEY,
+            accessToken TEXT
+          );
+          
+          CREATE TABLE IF NOT EXISTS userAuthorizations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userId TEXT,
+            accessToken TEXT
+          );
+
+          CREATE TABLE IF NOT EXISTS apiKeys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userId TEXT,
+            siteId TEXT,
+            provider TEXT,
+            encryptedKey TEXT,
+            createdAt INTEGER,
+            UNIQUE(userId, siteId, provider)
+          );
+
+          CREATE TABLE IF NOT EXISTS selectedProviders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userId TEXT,
+            siteId TEXT,
+            provider TEXT,
+            UNIQUE(userId, siteId)
+          );
+        `);
+        
+        // Use SQLite directly as it already matches our interface
+        dbConnection = sqliteDb;
+        console.log('Connected to SQLite database');
+      } catch (error) {
+        console.error("Error initializing SQLite database:", error);
+        throw error;
+      }
     }
   }
-  return db;
+  
+  return dbConnection;
 }
 
 /**
@@ -137,9 +223,15 @@ export async function getAccessTokenFromSiteId(
   siteId: string
 ): Promise<string> {
   const db = await getDb();
-  const row = await db.get(
-    "SELECT accessToken FROM siteAuthorizations WHERE siteId = ?",
-    [siteId]
+  
+  // Define the type for the row
+  interface SiteAuthRow {
+    accessToken: string;
+  }
+  
+  const row = await db.get<SiteAuthRow>(
+    `SELECT accessToken FROM siteAuthorizations WHERE siteId = ?`,
+    siteId
   );
 
   if (!row?.accessToken) {
@@ -160,9 +252,15 @@ export async function getAccessTokenFromUserId(
   userId: string
 ): Promise<string> {
   const db = await getDb();
-  const row = await db.get(
-    "SELECT accessToken FROM userAuthorizations WHERE userId = ?",
-    [userId]
+  
+  // Define the type for the row
+  interface UserAuthRow {
+    accessToken: string;
+  }
+  
+  const row = await db.get<UserAuthRow>(
+    `SELECT accessToken FROM userAuthorizations WHERE userId = ?`,
+    userId
   );
 
   if (!row?.accessToken) {
@@ -246,10 +344,20 @@ export async function getApiKey(
   provider: string
 ): Promise<string | null> {
   const db = await getDb();
-  const row = await db.get(
-    "SELECT encryptedKey FROM apiKeys WHERE userId = ? AND siteId = ? AND provider = ?",
-    [userId, siteId, provider]
+  
+  // Define the type for the row
+  interface ApiKeyRow {
+    encryptedKey: string;
+  }
+  
+  const row = await db.get<ApiKeyRow>(
+    `SELECT encryptedKey FROM apiKeys 
+     WHERE userId = ? AND siteId = ? AND provider = ?`,
+    userId,
+    siteId,
+    provider
   );
+
   return row?.encryptedKey || null;
 }
 
@@ -265,10 +373,19 @@ export async function getSelectedProvider(
   siteId: string
 ): Promise<string | null> {
   const db = await getDb();
-  const row = await db.get(
-    "SELECT provider FROM selectedProviders WHERE userId = ? AND siteId = ?",
-    [userId, siteId]
+  
+  // Define the type for the row
+  interface ProviderRow {
+    provider: string;
+  }
+  
+  const row = await db.get<ProviderRow>(
+    `SELECT provider FROM selectedProviders 
+     WHERE userId = ? AND siteId = ?`,
+    userId,
+    siteId
   );
+
   return row?.provider || null;
 }
 

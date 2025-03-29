@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Save API key using controller
-    await apiKeysController.saveApiKey(userId, provider, apiKey);
+    await apiKeysController.saveApiKey(userId, "default", provider, apiKey);
 
     return new NextResponse(
       JSON.stringify({ success: true }), 

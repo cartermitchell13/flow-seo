@@ -18,7 +18,7 @@ import db from "../../lib/utils/database";
 
 // Get allowed origin from environment variable, fallback to localhost in development
 const ALLOWED_ORIGIN = process.env.NODE_ENV === 'production' 
-  ? (process.env.DESIGNER_EXTENSION_URI || 'https://67a52dfc4cdf429141cdc2b8.webflow-ext.com')
+  ? (process.env.DESIGNER_EXTENSION_URI || '*')
   : 'http://localhost:1337';
 
 // CORS headers for cross-origin requests
@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify access token and get user
-    const user = await auth.verifyAccessToken(request);
-    if (!user) {
+    const userInfo = await auth.verifyAccessToken(request);
+    if (!userInfo) {
       return NextResponse.json({ error: "Unauthorized" }, { 
         status: 401,
         headers: corsHeaders
@@ -64,10 +64,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Extract user ID from the user info
+    const userId = userInfo.user.id;
+    
+    // Use provided siteId or default
+    const targetSiteId = siteId || "default";
+
+    console.log(`[Generate Alt Text] Generating alt text for user ${userId}, site ${targetSiteId}, provider ${provider}`);
+
     // Get API key for the provider
     const apiKey = await apiKeysController.getApiKey(
-      user.id,
-      user.workspaces[0]?.id || "default",
+      userId,
+      targetSiteId,
       provider
     );
 
@@ -81,24 +89,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch site context for SEO if siteId is provided
-    let siteContext = undefined;
+    // Get site context if siteId is provided
+    let siteContext: any = undefined;
     if (siteId) {
       try {
         // Get access token for the site
         const accessToken = await db.getAccessTokenFromSiteId(siteId);
-        if (accessToken) {
-          // Fetch site context
-          siteContext = await getSiteContext(siteId, accessToken);
-          console.log('Using site context for SEO:', siteContext);
-        }
+        siteContext = await getSiteContext(siteId, accessToken);
       } catch (error) {
-        console.warn('Failed to fetch site context:', error);
-        // Continue without site context if there's an error
+        console.error("Error getting site context:", error);
+        // Continue without site context
       }
     }
 
-    // Generate alt text with site context if available
+    // Generate alt text
     const result = await generateAltText({
       imageUrl,
       provider,
@@ -106,11 +110,12 @@ export async function POST(request: NextRequest) {
       siteContext
     });
 
+    // Return the generated alt text
     return NextResponse.json(result, { headers: corsHeaders });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error generating alt text:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to generate alt text" },
+      { error: "Failed to generate alt text" },
       { 
         status: 500,
         headers: corsHeaders
